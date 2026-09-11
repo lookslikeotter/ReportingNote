@@ -20,6 +20,8 @@
   .page > #quartz-body .sidebar.left {
     padding-left: 1rem;
     padding-right: 1rem;
+    // 탐색기와 본문 사이 옅은 경계선
+    border-right: 1px solid var(--lightgray);
   }
 }
 
@@ -212,7 +214,7 @@ td > code {
 
 @media all and (min-width: 1200px) {
   .page > #quartz-body {
-    grid-template-columns: 320px auto 420px;
+    grid-template-columns: 320px auto 504px;
   }
 
   .page > #quartz-body .sidebar.right {
