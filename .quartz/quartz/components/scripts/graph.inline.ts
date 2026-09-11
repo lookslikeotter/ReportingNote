@@ -23,6 +23,7 @@ import {
   ContentData,
   HOVER_EXTRA_WIDTH,
   categoryColor,
+  eventLinkColor,
   eventLinkWidth,
   tableEventPairs,
   factionIndex,
@@ -319,12 +320,14 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     }
   }
 
-  // 선 색: 세력 관계는 관계별 색, 소속 점선은 진하게, 사건 인연 선은 중간(하이라이트되면 진하게)
+  // 선 색: 세력 관계는 관계별 색, 하이라이트된 선은 가장 진하게, 소속 점선은 진하게,
+  // 사건 인연 선은 사건 수에 따라 (굵기가 최대가 된 뒤부터 조금씩 진해짐)
   function linkColor(l: LinkRenderData): string {
-    const { relation, member } = l.simulationData
+    const { relation, member, weight } = l.simulationData
     if (relation) return RELATION_STYLES[relation]?.color ?? computedStyleMap["--gray"]
-    if (member || l.active || l === hoveredLink) return computedStyleMap["--darkgray"]
-    return computedStyleMap["--gray"]
+    if (l.active || l === hoveredLink) return computedStyleMap["--dark"]
+    if (member) return computedStyleMap["--darkgray"]
+    return eventLinkColor(weight ?? 1, computedStyleMap["--gray"], computedStyleMap["--dark"])
   }
 
   let dragStartTime = 0

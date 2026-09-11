@@ -23,6 +23,7 @@ import {
   ContentData,
   HOVER_EXTRA_WIDTH,
   categoryColor,
+  eventLinkColor,
   eventLinkWidth,
   tableEventPairs,
   factionIndex,
@@ -211,6 +212,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   )
 
   const color = (d: NodeData) => categoryColor(d.tags, computedStyleMap["--dark"])
+  const eventColor = (l: LinkData) =>
+    eventLinkColor(l.weight, computedStyleMap["--gray"], computedStyleMap["--dark"])
 
   function nodeRadius(d: NodeData) {
     const numLinks = graphData.links.filter(
@@ -271,9 +274,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         alpha = l === hoveredLink ? 1 : 0.2
       }
 
-      // 하이라이트된 선은 진하게
-      l.color =
-        l.active || l === hoveredLink ? computedStyleMap["--darkgray"] : computedStyleMap["--gray"]
+      // 하이라이트된 선은 가장 진하게, 나머지는 사건 수에 따라 (굵기가 최대가 된 뒤부터 조금씩 진해짐)
+      l.color = l.active || l === hoveredLink ? computedStyleMap["--dark"] : eventColor(l.simulationData)
       tweenGroup.add(new Tweened<LinkRenderData>(l).to({ alpha }, 200))
     }
 
@@ -429,7 +431,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     linkRenderData.push({
       simulationData: l,
       gfx,
-      color: computedStyleMap["--gray"],
+      color: eventColor(l),
       alpha: 1,
       active: false,
     })

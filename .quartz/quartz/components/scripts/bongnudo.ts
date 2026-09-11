@@ -132,9 +132,38 @@ export async function tableEventPairs(
   return pairs
 }
 
-// 사건 인연 선 굵기: 1건 0.8, 1건 늘 때마다 +0.6, 최대 4
+// 사건 인연 선 모양 (weight = 함께 엮인 사건 수)
+//   1건: 아주 얇은 선 → 1건마다 조금씩 굵어져 EVENT_MAX_WIDTH까지 (6건)
+//   그다음부터는 굵기는 그대로, 색이 조금씩 진해져 EVENT_DARKEN_STEPS건 뒤(12건) 가장 진한 색(--dark, 라이트 모드 검정)
+const EVENT_MIN_WIDTH = 0.5
+const EVENT_WIDTH_STEP = 0.5
+const EVENT_MAX_WIDTH = 3
+const EVENT_DARKEN_STEPS = 6
+
 export function eventLinkWidth(weight: number): number {
-  return Math.min(0.8 + 0.6 * (weight - 1), 4)
+  return Math.min(EVENT_MIN_WIDTH + EVENT_WIDTH_STEP * (weight - 1), EVENT_MAX_WIDTH)
+}
+
+// base(연한 선 색)에서 darkest(가장 진한 색)로, 굵기가 최대가 된 뒤부터 조금씩
+export function eventLinkColor(weight: number, base: string, darkest: string): string {
+  const maxAt = 1 + (EVENT_MAX_WIDTH - EVENT_MIN_WIDTH) / EVENT_WIDTH_STEP
+  const t = Math.max(0, Math.min(1, (weight - maxAt) / EVENT_DARKEN_STEPS))
+  return mixColor(base, darkest, t)
+}
+
+function parseHex(c: string): number[] | null {
+  const m = c.trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i)
+  if (!m) return null
+  const h = m[1].length === 3 ? [...m[1]].map((x) => x + x).join("") : m[1]
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16))
+}
+
+// 두 색(#rgb·#rrggbb) 사이를 t(0~1)만큼 섞는다. 읽을 수 없는 색이면 가까운 쪽을 그대로 쓴다
+function mixColor(a: string, b: string, t: number): string {
+  const ca = parseHex(a)
+  const cb = parseHex(b)
+  if (!ca || !cb) return t < 0.5 ? a : b
+  return "#" + ca.map((v, i) => Math.round(v + (cb[i] - v) * t).toString(16).padStart(2, "0")).join("")
 }
 
 // 마우스를 올린 선은 이만큼 더 굵게
