@@ -19,189 +19,36 @@ import { Group as TweenGroup, Tween as Tweened } from "@tweenjs/tween.js"
 import { registerEscapeHandler, removeAllChildren } from "./util"
 import { FullSlug, SimpleSlug, resolveRelative, simplifySlug } from "../../util/path"
 import { D3Config } from "../Graph"
+import {
+  ContentData,
+  HOVER_EXTRA_WIDTH,
+  categoryColor,
+  eventLinkWidth,
+  eventPairs,
+  factionIndex,
+  linkResolver,
+  nearestLink,
+  nodeLabel,
+  normalizeName,
+  showEventPopup,
+} from "./bongnudo"
 
-// 봉누도2 — 인물 그래프 스크립트. 원본은 볼트의 .quartz/peopleGraph.inline.ts.
-// Quartz v4.5.2 graph.inline.ts를 바탕으로, PERSON_TAG 태그가 붙은 노트만 노드로 그린다.
-// 선은 인물 노트끼리 서로 링크한 경우에만 생긴다. 이름표는 처음부터 보이고, 앞의 번호(001 등)는 뗀다.
+// 봉누도2 — 인물 그래프 스크립트 (오른쪽 위 그래프와 크게 보기 창). Quartz v4.5.2 graph.inline.ts를 바탕으로 했다.
+// 원본은 볼트의 .quartz/quartz/components/scripts/peopleGraph.inline.ts. 아래 그래프와 함께 쓰는 규칙은 bongnudo.ts.
+//   - 노드는 PERSON_TAG 태그가 붙은 인물 노트만. 색은 분류 태그, 지금 페이지는 테두리
+//   - 이름표는 처음부터 보이고, 확대·축소해도 화면에서 글자 크기가 그대로다
+//   - 선은 사건 인연 선만 (📰·🔥 사건에 함께 엮인 두 인물, 사건이 많을수록 굵고 가깝게).
+//     같은 소속끼리는 선 없이 보이지 않는 힘으로 가까이 모은다
+//   - 처음에는 모든 인물이 한 화면에 들어오게 맞추고, 인물 페이지로 가면 그 인물 쪽으로 옮기며 확대한다
+//   - 페이지를 옮겨도 다시 그리지 않는다 (크기·테마가 바뀔 때만)
+//   - 선에 마우스를 올리면 하이라이트, 누르면 두 인물이 함께 엮인 사건 표 창
 const PERSON_TAG = "인물"
-// 분류 태그별 노드 색 (graph.inline.ts 수정본과 같은 값, 앞에 있는 태그가 우선)
-const CATEGORY_COLORS: [string, string][] = [
-  ["갱", "#e03131"],
-  ["기관", "#0075de"],
-  ["시민", "#1aae39"],
-]
 
-// 선을 눌렀을 때 뜨는 창 (두 인물이 함께 엮인 사건 목록). Esc나 바깥을 누르면 닫힌다.
-type EdgePopupItem = { icon: string; label: string; desc?: string; href?: string }
+// 같은 소속끼리 모으는 힘의 세기
+const CLUSTER_STRENGTH = 0.15
 
-// 사건 노트 본문 '개요' 첫 줄을 요약으로 쓴다
-function eventSummary(details: ContentDetails | undefined): string {
-  const m = (details?.content ?? "").match(/개요\s*\n+\s*([^\n]+)/)
-  return (m?.[1] ?? "").trim()
-}
-
-// "1일차-03 표민수의 너구리 살해" → "1일차 · 표민수의 너구리 살해"
-function eventLabel(title: string): string {
-  return title.replace(/^(\d+일차)-\d+\s+/, "$1 · ")
-}
-
-// 일차·순번으로 정렬하기 위한 값
-function eventOrder(title: string): number {
-  const m = title.match(/^(\d+)일차-(\d+)/)
-  return m ? Number(m[1]) * 1000 + Number(m[2]) : 0
-}
-
-// 일지 페이지(N일차)의 사건 표에서 이 사건들의 행만 골라, 일지와 같은 모양의 표로 만든다
-const dayPageCache = new Map<string, Promise<Document | null>>()
-function fetchDayPage(url: string): Promise<Document | null> {
-  let p = dayPageCache.get(url)
-  if (!p) {
-    p = fetch(url)
-      .then((r) => (r.ok ? r.text() : Promise.reject()))
-      .then((html) => new DOMParser().parseFromString(html, "text/html"))
-      .catch(() => {
-        // 실패는 기억하지 않는다 (다음에 다시 시도)
-        dayPageCache.delete(url)
-        return null
-      })
-    dayPageCache.set(url, p)
-  }
-  return p
-}
-
-function defaultHead(): HTMLElement {
-  const thead = document.createElement("thead")
-  const tr = document.createElement("tr")
-  for (const h of ["", "시간", "사건", "요약", "관련 인물"]) {
-    const th = document.createElement("th")
-    th.textContent = h
-    tr.append(th)
-  }
-  thead.append(tr)
-  return thead
-}
-
-// 일지 표에서 행을 못 찾았을 때, 사건 노트에서 아는 정보로 같은 칸 구성의 행을 만든다
-function fallbackRow(details: ContentDetails | undefined, href: string): HTMLElement {
-  const tr = document.createElement("tr")
-  const cells = Array.from({ length: 5 }, () => document.createElement("td"))
-  const scoop = (details?.tags ?? []).includes("특종")
-  const icon = document.createElement("span")
-  icon.className = scoop ? "bn-lv-scoop" : "bn-lv-news"
-  icon.textContent = scoop ? "🔥" : "📰"
-  cells[0].append(icon)
-  const a = document.createElement("a")
-  a.href = href
-  a.textContent = (details?.title ?? "").replace(/^\d+일차-\d+\s+/, "")
-  cells[2].append(a)
-  cells[3].textContent = eventSummary(details)
-  tr.append(...cells)
-  return tr
-}
-
-async function buildEventTable(
-  currentSlug: FullSlug,
-  events: SimpleSlug[],
-  data: Map<SimpleSlug, ContentDetails>,
-): Promise<HTMLElement | null> {
-  const here = window.location.toString()
-  let thead: Element | null = null
-  const tbody = document.createElement("tbody")
-  for (const id of events) {
-    const details = data.get(id)
-    const eventUrl = new URL(resolveRelative(currentSlug, id), here)
-    const day = (details?.title ?? "").match(/^(\d+)일차-/)?.[1]
-    let row: Element | undefined
-    let dayUrl = ""
-    if (day) {
-      dayUrl = new URL(
-        resolveRelative(currentSlug, `01-일지/${day}일차` as SimpleSlug),
-        here,
-      ).toString()
-      const table = (await fetchDayPage(dayUrl))?.querySelector("article table")
-      thead ??= table?.querySelector("thead") ?? null
-      row = [...(table?.querySelectorAll("tbody tr") ?? [])].find((tr) =>
-        [...tr.querySelectorAll("a[href]")].some(
-          (a) => new URL(a.getAttribute("href")!, dayUrl).pathname === eventUrl.pathname,
-        ),
-      )
-    }
-    if (row) {
-      const clone = document.importNode(row, true)
-      clone.querySelectorAll("a[href]").forEach((a) => {
-        a.setAttribute("href", new URL(a.getAttribute("href")!, dayUrl).toString())
-      })
-      tbody.append(clone)
-    } else {
-      tbody.append(fallbackRow(details, eventUrl.toString()))
-    }
-  }
-  const out = document.createElement("table")
-  out.append(thead ? document.importNode(thead, true) : defaultHead())
-  out.append(tbody)
-  const wrap = document.createElement("div")
-  wrap.className = "bn-edge-table"
-  wrap.append(out)
-  return wrap
-}
-
-function showEdgePopup(title: string, subtitle: string, content: EdgePopupItem[] | HTMLElement) {
-  document.querySelector(".bn-edge-popup")?.remove()
-  const outer = document.createElement("div")
-  outer.className = "bn-edge-popup"
-  const card = document.createElement("div")
-  card.className = "bn-edge-card"
-  const head = document.createElement("div")
-  head.className = "bn-edge-title"
-  head.textContent = title
-  const sub = document.createElement("div")
-  sub.className = "bn-edge-subtitle"
-  sub.textContent = subtitle
-  card.append(head, sub)
-
-  if (Array.isArray(content)) {
-    const list = document.createElement("ul")
-    list.className = "bn-edge-list"
-    for (const it of content) {
-      const li = document.createElement("li")
-      const label = document.createElement(it.href ? "a" : "span")
-      label.className = "bn-edge-item"
-      label.textContent = `${it.icon} ${it.label}`
-      if (it.href) (label as HTMLAnchorElement).href = it.href
-      li.append(label)
-      if (it.desc) {
-        const desc = document.createElement("div")
-        desc.className = "bn-edge-desc"
-        desc.textContent = it.desc
-        li.append(desc)
-      }
-      list.append(li)
-    }
-    card.append(list)
-  } else {
-    card.append(content)
-  }
-  // 창 안의 링크를 누르면 창을 닫는다 (페이지 이동은 사이트의 링크 처리에 맡긴다)
-  card.addEventListener("click", (e) => {
-    if ((e.target as Element).closest("a")) close()
-  })
-  outer.append(card)
-  document.body.append(outer)
-
-  function onKey(e: KeyboardEvent) {
-    if (e.key === "Escape") close()
-  }
-  function close() {
-    outer.remove()
-    document.removeEventListener("keydown", onKey)
-  }
-  outer.addEventListener("click", (e) => {
-    if (e.target === outer) close()
-  })
-  document.addEventListener("keydown", onKey)
-}
-// 처음에는 모든 인물이 한 화면에 들어오도록 배율을 자동으로 맞추고,
-// 확대·축소해도 이름표 글자 크기는 화면에서 그대로 유지한다.
+// 인물로 이동할 때 확대할 배율 (이미 더 확대돼 있으면 그대로 둔다)
+const FOCUS_ZOOM = 1.6
 
 type GraphicsInfo = {
   color: string
@@ -216,18 +63,10 @@ type NodeData = {
   tags: string[]
 } & SimulationNodeDatum
 
-type SimpleLinkData = {
-  source: SimpleSlug
-  target: SimpleSlug
-  // 사건 인연: 두 사람이 함께 엮인 📰 사건·🔥 특종의 수
-  weight: number
-  // 그 사건 노트들 (선을 누르면 목록으로 보여 줌)
-  events: SimpleSlug[]
-}
-
 type LinkData = {
   source: NodeData
   target: NodeData
+  // 함께 엮인 사건 수와 그 사건 노트들
   weight: number
   events: SimpleSlug[]
 } & SimulationLinkDatum<NodeData>
@@ -241,11 +80,6 @@ type NodeRenderData = GraphicsInfo & {
   label: Text
 }
 
-const localStorageKey = "graph-visited"
-function getVisited(): Set<SimpleSlug> {
-  return new Set(JSON.parse(localStorage.getItem(localStorageKey) ?? "[]"))
-}
-
 type TweenNode = {
   update: (time: number) => void
   stop: () => void
@@ -253,9 +87,8 @@ type TweenNode = {
 
 async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   const slug = simplifySlug(fullSlug)
-  // 페이지를 옮겨도 그래프를 다시 그리지 않으므로, 노드 클릭 링크는 지금 페이지 기준으로 계산한다
+  // 페이지를 옮겨도 그래프를 다시 그리지 않으므로, 링크는 지금 페이지 기준으로 계산한다 (setCurrent가 갱신)
   let currentFullSlug = fullSlug
-  const visited = getVisited()
   removeAllChildren(graph)
   // 글꼴을 다 불러온 뒤에 그려야 이름표가 대체 글꼴로 그려지지 않는다
   await document.fonts?.ready
@@ -272,105 +105,43 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     enableRadial,
   } = JSON.parse(graph.dataset["cfg"]!) as D3Config
 
-  const data: Map<SimpleSlug, ContentDetails> = new Map(
+  const data: ContentData = new Map(
     Object.entries<ContentDetails>(await fetchData).map(([k, v]) => [
       simplifySlug(k as FullSlug),
       v,
     ]),
   )
+  const resolveLink = linkResolver(data)
 
-  // 별칭·짧은 이름 링크를 실제 노트 주소로 되돌린다 (graph.inline.ts 수정본과 같은 방식).
-  // Quartz는 파일명과 같은 별칭이 있으면 [[표민수]]를 별칭 주소('표민수')로 풀어서 실제 인물 노드와 어긋난다.
-  const baseIndex = new Map<string, SimpleSlug | null>()
-  for (const id of data.keys()) {
-    const base = (id.split("/").pop() ?? "").replace(/^\d+-/, "")
-    if (!base) continue
-    baseIndex.set(base, baseIndex.has(base) ? null : id)
-  }
-  const resolveLink = (dest: SimpleSlug): SimpleSlug => {
-    if (data.has(dest)) return dest
-    const base = (dest.split("/").pop() ?? "").replace(/^\d+-/, "")
-    return baseIndex.get(base) ?? dest
-  }
-
-  // 인물 태그가 붙은 노트만 고른다
   const people = new Set<SimpleSlug>()
   for (const [id, details] of data.entries()) {
-    if ((details.tags ?? []).includes(PERSON_TAG)) {
-      people.add(id)
-    }
+    if ((details.tags ?? []).includes(PERSON_TAG)) people.add(id)
   }
 
-  // 선은 '사건 인연'만: 사건 노트 중 📰 사건·🔥 특종 태그가 붙은 노트에 함께 링크된 두 인물을 잇는다.
-  // 함께 엮인 사건이 많을수록 weight가 커져 선이 굵어진다.
-  // 인물 노트끼리의 링크, ☕ 일상 사건(태그 없음)은 선을 만들지 않는다.
-  const EVENT_TAGS = ["사건", "특종"]
-  const pairKey = (a: string, b: string) => (a < b ? a + "|" + b : b + "|" + a)
-  const pairWeight = new Map<string, SimpleLinkData>()
-  for (const [eventId, details] of data.entries()) {
-    if (!(details.tags ?? []).some((t) => EVENT_TAGS.includes(t))) continue
-    const involved = [
-      ...new Set((details.links ?? []).map(resolveLink).filter((d) => people.has(d))),
-    ]
-    for (let i = 0; i < involved.length; i++) {
-      for (let j = i + 1; j < involved.length; j++) {
-        const key = pairKey(involved[i], involved[j])
-        const entry = pairWeight.get(key)
-        if (entry) {
-          entry.weight++
-          entry.events.push(eventId)
-        } else {
-          pairWeight.set(key, {
-            source: involved[i],
-            target: involved[j],
-            weight: 1,
-            events: [eventId],
-          })
-        }
-      }
-    }
-  }
-  const links: SimpleLinkData[] = [...pairWeight.values()]
-
-  // 같은 소속끼리는 선을 그리지 않고, 보이지 않는 힘으로 가까이 모은다.
-  // 조직 태그 = 세력 노트 이름과 같은 태그 (띄어쓰기·하이픈을 빼고 비교: 판도라연구소 = 판도라-연구소)
-  const normalizeName = (s: string) => s.replace(/[\s-]/g, "")
-  const orgNames = new Set<string>()
-  for (const [id, details] of data.entries()) {
-    if (id.startsWith("03-세력/") && !id.endsWith("/") && !id.endsWith("세력-목록")) {
-      const base = id.split("/").pop() ?? ""
-      if (base) orgNames.add(normalizeName(base))
-      if (details.title) orgNames.add(normalizeName(details.title))
-    }
-  }
+  // 소속: 조직 태그 = 세력 노트 이름과 같은 태그
+  const factions = factionIndex(data)
   const orgOf = new Map<SimpleSlug, string>()
   for (const id of people) {
-    const org = (data.get(id)?.tags ?? []).map(normalizeName).find((t) => t && orgNames.has(t))
+    const org = (data.get(id)?.tags ?? []).map(normalizeName).find((t) => factions.has(t))
     if (org) orgOf.set(id, org)
   }
 
-  const tweens = new Map<string, TweenNode>()
-
-  const nodes = [...people].map((url) => {
-    const title = data.get(url)?.title ?? url
-    return {
-      id: url,
-      text: title.replace(/^\d{3}\s+/, ""),
-      tags: data.get(url)?.tags ?? [],
-    }
-  })
+  const nodes: NodeData[] = [...people].map((id) => ({
+    id,
+    text: nodeLabel(data.get(id)?.title ?? id),
+    tags: data.get(id)?.tags ?? [],
+  }))
+  const nodeById = new Map(nodes.map((n) => [n.id, n]))
   const graphData: { nodes: NodeData[]; links: LinkData[] } = {
     nodes,
-    links: links.map((l) => ({
-      source: nodes.find((n) => n.id === l.source)!,
-      target: nodes.find((n) => n.id === l.target)!,
-      weight: l.weight,
-      events: l.events,
+    links: [...eventPairs(data, resolveLink, (id) => people.has(id)).values()].map((p) => ({
+      ...p,
+      source: nodeById.get(p.source)!,
+      target: nodeById.get(p.target)!,
     })),
   }
 
   // 같은 소속끼리 모으는 힘: 소속별 무게중심 쪽으로 조금씩 당긴다 (선은 그리지 않음)
-  const CLUSTER_STRENGTH = 0.15
   const clusterForce = (alpha: number) => {
     const sums = new Map<string, { x: number; y: number; n: number }>()
     for (const n of graphData.nodes) {
@@ -399,7 +170,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   const simulation: Simulation<NodeData, LinkData> = forceSimulation<NodeData>(graphData.nodes)
     .force("charge", forceManyBody().strength(-100 * repelForce))
     .force("center", forceCenter().strength(centerForce))
-    // 사건 인연 선: 함께 엮인 사건이 많을수록 더 가깝게
+    // 함께 엮인 사건이 많을수록 더 가깝게
     .force(
       "link",
       forceLink(graphData.links).distance(
@@ -435,14 +206,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     {} as Record<(typeof cssVars)[number], string>,
   )
 
-  // 노드 색은 분류 태그 기준 (갱 빨강 · 기관 파랑 · 시민 초록 · 그 외 기본 글자색)
-  // 지금 보고 있는 페이지는 색 대신 테두리로 표시한다
-  const color = (d: NodeData) => {
-    for (const [tag, c] of CATEGORY_COLORS) {
-      if (d.tags.includes(tag)) return c
-    }
-    return computedStyleMap["--dark"]
-  }
+  const color = (d: NodeData) => categoryColor(d.tags, computedStyleMap["--dark"])
 
   function nodeRadius(d: NodeData) {
     const numLinks = graphData.links.filter(
@@ -452,7 +216,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   }
 
   let hoveredNodeId: string | null = null
-  // 마우스가 올라가 있는 선 (선 하이라이트·클릭용)
+  // 마우스가 올라가 있는 선 (노드 위에서는 노드가 우선)
   let hoveredLink: LinkRenderData | null = null
   let hoveredNeighbours: Set<string> = new Set()
   const linkRenderData: LinkRenderData[] = []
@@ -500,11 +264,10 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       if (hoveredNodeId) {
         alpha = l.active ? 1 : 0.2
       } else if (hoveredLink) {
-        // 선에 마우스를 올리면 그 선만 또렷하게
         alpha = l === hoveredLink ? 1 : 0.2
       }
 
-      // 사건 인연 선은 의미 있는 선만 남으므로 기본보다 진하게, 마우스를 올리면 더 진하게
+      // 하이라이트된 선은 진하게
       l.color =
         l.active || l === hoveredLink ? computedStyleMap["--darkgray"] : computedStyleMap["--gray"]
       tweenGroup.add(new Tweened<LinkRenderData>(l).to({ alpha }, 200))
@@ -527,29 +290,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     const defaultScale = 1 / currentTransform.k
     const activeScale = defaultScale * 1.1
     for (const n of nodeRenderData) {
-      const nodeId = n.simulationData.id
-
-      if (hoveredNodeId === nodeId) {
-        tweenGroup.add(
-          new Tweened<Text>(n.label).to(
-            {
-              alpha: 1,
-              scale: { x: activeScale, y: activeScale },
-            },
-            100,
-          ),
-        )
-      } else {
-        tweenGroup.add(
-          new Tweened<Text>(n.label).to(
-            {
-              alpha: n.label.alpha,
-              scale: { x: defaultScale, y: defaultScale },
-            },
-            100,
-          ),
-        )
-      }
+      const s = hoveredNodeId === n.simulationData.id ? activeScale : defaultScale
+      tweenGroup.add(new Tweened<Text>(n.label).to({ scale: { x: s, y: s } }, 100))
     }
 
     tweenGroup.getAll().forEach((tw) => tw.start())
@@ -572,9 +314,9 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         alpha = n.active ? 1 : 0.2
       } else if (hoveredNodeId === null && hoveredLink) {
         // 선에 마우스를 올리면 양 끝 두 인물만 또렷하게
-        const ld = hoveredLink.simulationData
+        const { source, target } = hoveredLink.simulationData
         const id = n.simulationData.id
-        alpha = id === ld.source.id || id === ld.target.id ? 1 : 0.2
+        alpha = id === source.id || id === target.id ? 1 : 0.2
       }
 
       tweenGroup.add(new Tweened<Graphics>(n.gfx, tweenGroup).to({ alpha }, 200))
@@ -595,8 +337,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     renderLabels()
   }
 
-  tweens.forEach((tween) => tween.stop())
-  tweens.clear()
+  const tweens = new Map<string, TweenNode>()
 
   const app = new Application()
   await app.init({
@@ -620,10 +361,15 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   const linkContainer = new Container<Graphics>({ zIndex: 1, isRenderGroup: true })
   stage.addChild(nodesContainer, labelsContainer, linkContainer)
 
-  for (const n of graphData.nodes) {
-    const nodeId = n.id
+  // 노드 원 + 지금 페이지 테두리 (페이지를 옮기면 setCurrent가 다시 그린다)
+  function drawNode(gfx: Graphics, n: NodeData, current: SimpleSlug) {
+    gfx.clear().circle(0, 0, nodeRadius(n)).fill({ color: color(n) })
+    if (n.id === current) {
+      gfx.stroke({ width: 2, color: computedStyleMap["--secondary"] })
+    }
+  }
 
-    // 이름표는 처음부터 보이게 (기본 그래프는 확대해야 보임)
+  for (const n of graphData.nodes) {
     const label = new Text({
       interactive: false,
       eventMode: "none",
@@ -631,7 +377,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       alpha: 1,
       anchor: { x: 0.5, y: 1.2 },
       style: {
-        // 화면에 보일 크기 그대로 그린다 (축소하며 흐려지지 않게)
+        // 화면에 보일 크기 그대로 그린다 (확대 배율은 scale로 되돌린다)
         fontSize: (fontSize * 15) / scale,
         fill: computedStyleMap["--dark"],
         fontFamily: computedStyleMap["--bodyFont"],
@@ -643,64 +389,46 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     })
     label.scale.set(1)
 
-    let oldLabelOpacity = 1
     const gfx = new Graphics({
       interactive: true,
-      label: nodeId,
+      label: n.id,
       eventMode: "static",
       hitArea: new Circle(0, 0, nodeRadius(n)),
       cursor: "pointer",
     })
-      .circle(0, 0, nodeRadius(n))
-      .fill({ color: color(n) })
       .on("pointerover", (e) => {
         updateHoverInfo(e.target.label)
-        oldLabelOpacity = label.alpha
-        if (!dragging) {
-          renderPixiFromD3()
-        }
+        if (!dragging) renderPixiFromD3()
       })
       .on("pointerleave", () => {
         updateHoverInfo(null)
-        label.alpha = oldLabelOpacity
-        if (!dragging) {
-          renderPixiFromD3()
-        }
+        if (!dragging) renderPixiFromD3()
       })
-
-    // 지금 보고 있는 페이지는 테두리로 표시
-    if (nodeId === slug) {
-      gfx.stroke({ width: 2, color: computedStyleMap["--secondary"] })
-    }
+    drawNode(gfx, n, slug)
 
     nodesContainer.addChild(gfx)
     labelsContainer.addChild(label)
 
-    const nodeRenderDatum: NodeRenderData = {
+    nodeRenderData.push({
       simulationData: n,
       gfx,
       label,
       color: color(n),
       alpha: 1,
       active: false,
-    }
-
-    nodeRenderData.push(nodeRenderDatum)
+    })
   }
 
   for (const l of graphData.links) {
     const gfx = new Graphics({ interactive: false, eventMode: "none" })
     linkContainer.addChild(gfx)
-
-    const linkRenderDatum: LinkRenderData = {
+    linkRenderData.push({
       simulationData: l,
       gfx,
       color: computedStyleMap["--gray"],
       alpha: 1,
       active: false,
-    }
-
-    linkRenderData.push(linkRenderDatum)
+    })
   }
 
   let currentTransform = zoomIdentity
@@ -750,7 +478,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     }
   }
 
-  // 인물 페이지에 들어가면 그 인물이 가운데 오도록 화면을 옮긴다 (배율은 그대로)
+  // 인물 페이지에 들어가면 그 인물이 가운데 오도록 화면을 옮긴다
   let panToNode: ((id: string, zoomIn?: boolean) => void) | null = null
 
   if (enableZoom) {
@@ -764,7 +492,6 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         currentTransform = transform
         stage.scale.set(transform.k, transform.k)
         stage.position.set(transform.x, transform.y)
-
         // 확대·축소해도 이름표 글자 크기는 화면에서 그대로
         for (const n of nodeRenderData) {
           n.label.scale.set(1 / transform.k)
@@ -793,11 +520,9 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       )
     }
 
-    // 인물로 이동할 때 확대할 배율 (이미 더 확대돼 있으면 그대로 둔다)
-    const FOCUS_ZOOM = 1.6
     let panFrame = 0
     panToNode = (id: string, zoomIn = false) => {
-      const node = graphData.nodes.find((n) => n.id === id)
+      const node = nodeById.get(id as SimpleSlug)
       if (!node || node.x === undefined || node.y === undefined) return
       const k0 = currentTransform.k
       const k1 = zoomIn ? Math.max(k0, FOCUS_ZOOM) : k0
@@ -824,38 +549,11 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       panFrame = requestAnimationFrame(step)
     }
 
-    // 처음 그릴 때도 인물 페이지면 그 인물 쪽으로
+    // 처음 그릴 때도 인물 페이지면 그 인물 쪽으로 (배율은 그대로)
     panToNode(slug)
   }
 
-  // 선 위에 마우스를 올리면 하이라이트, 누르면 두 인물이 함께 엮인 사건 목록 창을 띄운다.
-  // 선은 마우스에 반응하지 않는 그림이라, 마우스 위치에서 가장 가까운 선을 직접 계산한다 (화면 기준 6px 안).
-  const LINK_HIT_PX = 6
-  function linkAt(px: number, py: number): LinkRenderData | null {
-    const k = currentTransform.k
-    const wx = (px - currentTransform.x) / k
-    const wy = (py - currentTransform.y) / k
-    let best: LinkRenderData | null = null
-    let bestDist = LINK_HIT_PX / k
-    for (const l of linkRenderData) {
-      const s = l.simulationData.source
-      const t = l.simulationData.target
-      if (s.x === undefined || s.y === undefined || t.x === undefined || t.y === undefined) continue
-      const x1 = s.x + width / 2
-      const y1 = s.y + height / 2
-      const dx = t.x + width / 2 - x1
-      const dy = t.y + height / 2 - y1
-      const len2 = dx * dx + dy * dy
-      const u = len2 > 0 ? Math.max(0, Math.min(1, ((wx - x1) * dx + (wy - y1) * dy) / len2)) : 0
-      const dist = Math.hypot(wx - (x1 + u * dx), wy - (y1 + u * dy))
-      if (dist < bestDist) {
-        bestDist = dist
-        best = l
-      }
-    }
-    return best
-  }
-
+  // 선 위에 마우스를 올리면 하이라이트, 누르면 사건 표 창
   function setHoveredLink(l: LinkRenderData | null) {
     if (l === hoveredLink) return
     hoveredLink = l
@@ -863,39 +561,18 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     renderPixiFromD3()
   }
 
-  async function openLinkPopup(ld: LinkData) {
-    const events = [...ld.events].sort(
-      (x, y) => eventOrder(data.get(x)?.title ?? "") - eventOrder(data.get(y)?.title ?? ""),
-    )
-    // 일지 표 모양으로. 일지 페이지를 못 읽으면 간단한 목록으로 대신한다
-    const table = await buildEventTable(currentFullSlug, events, data)
-    showEdgePopup(
-      `${ld.source.text} ─ ${ld.target.text}`,
-      `함께 엮인 사건 ${events.length}건`,
-      table ??
-      events.map((id) => {
-        const d = data.get(id)
-        return {
-          icon: (d?.tags ?? []).includes("특종") ? "🔥" : "📰",
-          label: eventLabel(d?.title ?? id),
-          desc: eventSummary(d),
-          href: resolveRelative(currentFullSlug, id),
-        }
-      }),
-    )
-  }
-
   app.canvas.addEventListener("pointermove", (e) => {
-    if (dragging || hoveredNodeId !== null) {
-      setHoveredLink(null)
-      return
-    }
-    setHoveredLink(linkAt(e.offsetX, e.offsetY))
+    const over =
+      dragging || hoveredNodeId !== null
+        ? null
+        : nearestLink(linkRenderData, e.offsetX, e.offsetY, currentTransform, width, height)
+    setHoveredLink(over)
   })
   app.canvas.addEventListener("pointerleave", () => setHoveredLink(null))
   app.canvas.addEventListener("click", () => {
     if (hoveredNodeId !== null || !hoveredLink) return
-    openLinkPopup(hoveredLink.simulationData)
+    const { source, target, events } = hoveredLink.simulationData
+    void showEventPopup(`${source.text} ─ ${target.text}`, currentFullSlug, events, data)
   })
 
   let stopAnimation = false
@@ -905,24 +582,17 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       const { x, y } = n.simulationData
       if (!x || !y) continue
       n.gfx.position.set(x + width / 2, y + height / 2)
-      if (n.label) {
-        n.label.position.set(x + width / 2, y + height / 2)
-      }
+      n.label.position.set(x + width / 2, y + height / 2)
     }
 
     for (const l of linkRenderData) {
       const linkData = l.simulationData
-      l.gfx.clear()
-      l.gfx.moveTo(linkData.source.x! + width / 2, linkData.source.y! + height / 2)
+      const extra = l === hoveredLink ? HOVER_EXTRA_WIDTH : 0
       l.gfx
+        .clear()
+        .moveTo(linkData.source.x! + width / 2, linkData.source.y! + height / 2)
         .lineTo(linkData.target.x! + width / 2, linkData.target.y! + height / 2)
-        .stroke({
-          alpha: l.alpha,
-          // 함께 엮인 사건 수에 따라 굵게: 1건 1.8px, 2건 2.6px, 3건 3.4px, 최대 4px
-          width:
-            Math.min(0.8 + 0.6 * (l.simulationData.weight - 1), 4) + (l === hoveredLink ? 1.5 : 0),
-          color: l.color,
-        })
+        .stroke({ alpha: l.alpha, width: eventLinkWidth(linkData.weight) + extra, color: l.color })
     }
 
     tweens.forEach((t) => t.update(time))
@@ -932,18 +602,13 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
 
   requestAnimationFrame(animate)
 
-  // 페이지를 옮기면 그래프는 그대로 두고 '지금 페이지' 테두리만 옮긴다
+  // 페이지를 옮기면 그래프는 그대로 두고 '지금 페이지' 테두리만 옮긴 뒤, 그 인물 쪽으로 옮기며 확대한다
   function setCurrent(newFullSlug: FullSlug) {
     currentFullSlug = newFullSlug
     const cur = simplifySlug(newFullSlug)
     for (const n of nodeRenderData) {
-      const r = nodeRadius(n.simulationData)
-      n.gfx.clear().circle(0, 0, r).fill({ color: color(n.simulationData) })
-      if (n.simulationData.id === cur) {
-        n.gfx.stroke({ width: 2, color: computedStyleMap["--secondary"] })
-      }
+      drawNode(n.gfx, n.simulationData, cur)
     }
-    // 페이지를 옮겨 인물로 갈 때는 이동하면서 확대도 한다
     panToNode?.(cur, true)
   }
 

@@ -62,14 +62,8 @@ jobs:
             notes/ quartz/content/
           # 사이트 첫 화면 = 0일차 일지 (제목을 붙여 index.md로 복사)
           { echo '---'; echo 'title: 0일차'; tail -n +2 "notes/01 일지/0일차.md"; } > quartz/content/index.md
-          cp notes/.quartz/quartz.config.ts quartz/quartz.config.ts
-          cp notes/.quartz/quartz.layout.ts quartz/quartz.layout.ts
-          cp notes/.quartz/custom.scss quartz/quartz/styles/custom.scss
-          cp notes/.quartz/ExplorerDefaults.tsx quartz/quartz/components/ExplorerDefaults.tsx
-          cp notes/.quartz/FontLoader.tsx quartz/quartz/components/FontLoader.tsx
-          cp notes/.quartz/PeopleGraph.tsx quartz/quartz/components/PeopleGraph.tsx
-          cp notes/.quartz/peopleGraph.inline.ts quartz/quartz/components/scripts/peopleGraph.inline.ts
-          cp notes/.quartz/graph.inline.ts quartz/quartz/components/scripts/graph.inline.ts
+          # 사이트 설정·부품: 볼트의 .quartz/는 Quartz 폴더 구조 그대로라 통째로 덮어쓴다
+          cp -r notes/.quartz/. quartz/
 
       - name: Build
         working-directory: quartz

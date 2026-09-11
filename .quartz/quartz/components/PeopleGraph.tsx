@@ -5,8 +5,8 @@ import style from "./styles/graph.scss"
 import { classNames } from "../util/lang"
 import { D3Config } from "./Graph"
 
-// 봉누도2 — 인물 그래프. 원본은 볼트의 .quartz/PeopleGraph.tsx.
-// GitHub Actions가 빌드 때 quartz/components/에 복사한다. 기본 Graph와 스타일(graph.scss)은 공유하고,
+// 봉누도2 — 인물 그래프. 원본은 볼트의 .quartz/quartz/components/PeopleGraph.tsx (빌드 때 Quartz에 복사).
+// 기본 Graph와 스타일(graph.scss)은 공유하고,
 // 요소 이름(people-...)을 달리해서 두 그래프가 서로 간섭하지 않게 한다.
 // 오른쪽 위 버튼을 누르면 인물 그래프를 크게 보는 창이 열린다 (기본 그래프의 전체 그래프 창과 같은 모양).
 
