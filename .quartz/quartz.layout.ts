@@ -3,6 +3,7 @@ import * as Component from "./quartz/components"
 import ExplorerDefaults from "./quartz/components/ExplorerDefaults"
 import PeopleGraph from "./quartz/components/PeopleGraph"
 import FontLoader from "./quartz/components/FontLoader"
+import RefreshButton from "./quartz/components/RefreshButton"
 
 // 봉누도2 — 원본은 볼트의 .quartz/quartz.layout.ts. GitHub Actions가 빌드 때 Quartz에 덮어쓴다.
 // 실제 날짜가 보이지 않도록 ContentMeta(수정일·읽는 시간)는 넣지 않는다.
@@ -33,7 +34,9 @@ export const sharedPageComponents: SharedLayout = {
 
 // components for pages that display a single page (e.g. a single note)
 export const defaultContentPageLayout: PageLayout = {
+  // 본문 오른쪽 위 새로고침 버튼 (custom.scss에서 위치를 잡는다)
   beforeBody: [
+    RefreshButton(),
     Component.ConditionalRender({
       component: Component.Breadcrumbs(),
       condition: (page) => page.fileData.slug !== "index",
@@ -67,7 +70,7 @@ export const defaultContentPageLayout: PageLayout = {
 
 // components for pages that display lists of pages  (e.g. tags or folders)
 export const defaultListPageLayout: PageLayout = {
-  beforeBody: [Component.Breadcrumbs(), Component.ArticleTitle()],
+  beforeBody: [RefreshButton(), Component.Breadcrumbs(), Component.ArticleTitle()],
   left: [
     Component.MobileOnly(Component.Spacer()),
     Component.Flex({

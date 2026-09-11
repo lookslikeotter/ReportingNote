@@ -196,12 +196,13 @@ function eventSummary(details: ContentDetails | undefined): string {
   return (m?.[1] ?? "").trim()
 }
 
-// 일지 페이지(N일차) HTML. 실패는 기억하지 않는다 (다음에 다시 시도)
+// 일지 페이지(N일차) HTML. 브라우저 캐시에 옛 표가 남지 않게 매번 서버에 확인하고(no-cache),
+// 페이지를 여는 동안은 받은 것을 다시 쓴다. 실패는 기억하지 않는다 (다음에 다시 시도)
 const dayPageCache = new Map<string, Promise<Document | null>>()
 function fetchDayPage(url: string): Promise<Document | null> {
   let p = dayPageCache.get(url)
   if (!p) {
-    p = fetch(url)
+    p = fetch(url, { cache: "no-cache" })
       .then((r) => (r.ok ? r.text() : Promise.reject()))
       .then((html) => new DOMParser().parseFromString(html, "text/html"))
       .catch(() => {
