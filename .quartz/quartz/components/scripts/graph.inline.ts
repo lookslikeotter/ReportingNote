@@ -591,12 +591,12 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     renderPixiFromD3()
   }
 
-  // 어떤 선이든 양 끝이 함께 엮인 사건 표. 소속·세력 관계 선은 세력이 주체(주체/ 태그)인 사건만
-  function openLinkPopup(ld: LinkData) {
+  // 어떤 선이든 양 끝이 함께 엮인 사건 표. 소속·세력 관계 선은 세력이 조직 단위로 얽힌 사건만 (일지 표 관련 인물 칸)
+  async function openLinkPopup(ld: LinkData) {
     const { source: a, target: b } = ld
-    const events = ld.events ?? factionEvents(data, resolveLink, factions, a.id, b.id)
+    const events = ld.events ?? (await factionEvents(fullSlug, data, resolveLink, a.id, b.id))
     const kind = ld.member ? "소속" : ld.relation ? `세력 관계 · ${ld.relation}` : undefined
-    void showEventPopup(`${a.text} ─ ${b.text}`, fullSlug, events, data, kind)
+    await showEventPopup(`${a.text} ─ ${b.text}`, fullSlug, events, data, kind)
   }
 
   app.canvas.addEventListener("pointermove", (e) => {
@@ -608,7 +608,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   })
   app.canvas.addEventListener("pointerleave", () => setHoveredLink(null))
   app.canvas.addEventListener("click", () => {
-    if (hoveredNodeId === null && hoveredLink) openLinkPopup(hoveredLink.simulationData)
+    if (hoveredNodeId === null && hoveredLink) void openLinkPopup(hoveredLink.simulationData)
   })
 
   let stopAnimation = false

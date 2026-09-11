@@ -1,5 +1,5 @@
 import type { ContentDetails } from "../../plugins/emitters/contentIndex"
-import { FullSlug, SimpleSlug, resolveRelative } from "../../util/path"
+import { FullSlug, SimpleSlug, resolveRelative, simplifySlug } from "../../util/path"
 
 // 봉누도2 — 그래프 스크립트 두 개가 함께 쓰는 규칙과 도구.
 //   graph.inline.ts: 오른쪽 아래 그래프와 전체 그래프 / peopleGraph.inline.ts: 인물 그래프
@@ -74,36 +74,42 @@ export function linkResolver(data: ContentData): (dest: SimpleSlug) => SimpleSlu
 
 // 📰 사건·🔥 특종 태그가 붙은 사건 노트만 선을 만든다 (☕ 일상 사건은 태그가 없다)
 const EVENT_TAGS = ["사건", "특종"]
-const isEventNote = (details: ContentDetails) =>
-  (details.tags ?? []).some((t) => EVENT_TAGS.includes(t))
-
-// 세력이 주체인 사건: 사건 노트 태그 주체/세력이름. 조직 단위로 움직인 사건에만 단다.
-// 조직원 개인이 저지른 일은 소속 설명으로 세력이 본문에 링크돼 있어도 세력의 사건이 아니다.
-const SUBJECT_TAG = /^주체\/(.+)$/
-const isFactionNode = (id: string) => id.startsWith("03-세력/")
+const isEventNote = (details?: ContentDetails) =>
+  (details?.tags ?? []).some((t) => EVENT_TAGS.includes(t))
 
 // 소속·세력 관계 선(한쪽 이상이 세력)을 눌렀을 때 보여 줄 📰·🔥 사건:
-// 세력 쪽은 그 사건의 주체여야 하고, 인물 쪽은 사건 본문에 링크돼 있어야 한다.
-export function factionEvents(
+// 일지 표(N일차) '관련 인물' 칸에 양 끝이 모두 들어간 사건.
+// 세력은 조직 단위로 얽힌 사건(사건 노트의 관련세력)에만 이 칸에 적는다 — 조직원 개인이 저지른 일은 세력의 사건이 아니다.
+export async function factionEvents(
+  currentSlug: FullSlug,
   data: ContentData,
   resolveLink: (dest: SimpleSlug) => SimpleSlug,
-  factions: Map<string, SimpleSlug>,
   a: SimpleSlug,
   b: SimpleSlug,
-): SimpleSlug[] {
+): Promise<SimpleSlug[]> {
+  const here = window.location.toString()
+  const slugsIn = (cell?: Element) =>
+    [...(cell?.querySelectorAll<HTMLElement>("a[data-slug]") ?? [])].map((el) =>
+      resolveLink(simplifySlug(el.dataset.slug as FullSlug)),
+    )
   const events: SimpleSlug[] = []
-  for (const [eventId, details] of data.entries()) {
-    if (!isEventNote(details)) continue
-    const subjects = new Set<SimpleSlug>()
-    for (const tag of details.tags ?? []) {
-      const m = tag.match(SUBJECT_TAG)
-      const faction = m ? factions.get(normalizeName(m[1])) : undefined
-      if (faction) subjects.add(faction)
+  const days = [...data.keys()].filter((id) => /^01-일지\/\d+일차$/.test(id))
+  for (const day of days) {
+    const dayUrl = new URL(resolveRelative(currentSlug, day), here).toString()
+    const table = (await fetchDayPage(dayUrl))?.querySelector("article table")
+    if (!table) continue
+    const heads = [...table.querySelectorAll("thead th")].map((th) => th.textContent ?? "")
+    const eventCol = heads.findIndex((h) => h.includes("사건"))
+    const relatedCol = heads.findIndex((h) => h.includes("관련"))
+    if (eventCol < 0 || relatedCol < 0) continue
+    for (const tr of table.querySelectorAll("tbody tr")) {
+      const cells = tr.querySelectorAll("td")
+      const eventId = slugsIn(cells[eventCol])[0]
+      const related = new Set(slugsIn(cells[relatedCol]))
+      if (eventId && isEventNote(data.get(eventId)) && related.has(a) && related.has(b)) {
+        events.push(eventId)
+      }
     }
-    if (subjects.size === 0) continue
-    const linked = new Set((details.links ?? []).map(resolveLink))
-    const involved = (id: SimpleSlug) => (isFactionNode(id) ? subjects.has(id) : linked.has(id))
-    if (involved(a) && involved(b)) events.push(eventId)
   }
   return events
 }
