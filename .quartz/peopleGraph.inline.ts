@@ -106,6 +106,20 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     ]),
   )
 
+  // 별칭·짧은 이름 링크를 실제 노트 주소로 되돌린다 (graph.inline.ts 수정본과 같은 방식).
+  // Quartz는 파일명과 같은 별칭이 있으면 [[표민수]]를 별칭 주소('표민수')로 풀어서 실제 인물 노드와 어긋난다.
+  const baseIndex = new Map<string, SimpleSlug | null>()
+  for (const id of data.keys()) {
+    const base = (id.split("/").pop() ?? "").replace(/^\d+-/, "")
+    if (!base) continue
+    baseIndex.set(base, baseIndex.has(base) ? null : id)
+  }
+  const resolveLink = (dest: SimpleSlug): SimpleSlug => {
+    if (data.has(dest)) return dest
+    const base = (dest.split("/").pop() ?? "").replace(/^\d+-/, "")
+    return baseIndex.get(base) ?? dest
+  }
+
   // 인물 태그가 붙은 노트만 고른다
   const people = new Set<SimpleSlug>()
   for (const [id, details] of data.entries()) {
@@ -122,7 +136,9 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   const pairWeight = new Map<string, SimpleLinkData>()
   for (const [, details] of data.entries()) {
     if (!(details.tags ?? []).some((t) => EVENT_TAGS.includes(t))) continue
-    const involved = [...new Set((details.links ?? []).filter((d) => people.has(d)))]
+    const involved = [
+      ...new Set((details.links ?? []).map(resolveLink).filter((d) => people.has(d))),
+    ]
     for (let i = 0; i < involved.length; i++) {
       for (let j = i + 1; j < involved.length; j++) {
         const key = pairKey(involved[i], involved[j])

@@ -126,6 +126,21 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       v,
     ]),
   )
+  // 봉누도2: 별칭·짧은 이름 링크를 실제 노트 주소로 되돌린다.
+  // Quartz는 파일명과 같은 별칭(aliases)이 있으면 [[표민수]] 같은 짧은 링크를 별칭 주소('표민수')로 풀어서,
+  // 그래프에서 실제 노트('02-인물/테스트/표민수')와 다른 노드로 취급된다. 이름(앞 번호 제외)이 같은 노트가 하나뿐이면 그 노트로 본다.
+  const baseIndex = new Map<string, SimpleSlug | null>()
+  for (const id of data.keys()) {
+    const base = (id.split("/").pop() ?? "").replace(/^\d+-/, "")
+    if (!base) continue
+    baseIndex.set(base, baseIndex.has(base) ? null : id)
+  }
+  const resolveLink = (dest: SimpleSlug): SimpleSlug => {
+    if (data.has(dest)) return dest
+    const base = (dest.split("/").pop() ?? "").replace(/^\d+-/, "")
+    return baseIndex.get(base) ?? dest
+  }
+
   const links: SimpleLinkData[] = []
   const tags: SimpleSlug[] = []
   const validLinks = new Set(data.keys())
@@ -135,8 +150,9 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     const outgoing = details.links ?? []
 
     for (const dest of outgoing) {
-      if (validLinks.has(dest)) {
-        links.push({ source: source, target: dest })
+      const target = resolveLink(dest)
+      if (validLinks.has(target)) {
+        links.push({ source: source, target })
       }
     }
 
@@ -221,7 +237,9 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   const eventWeight = new Map<string, SimpleLinkData>()
   for (const [, details] of data.entries()) {
     if (!(details.tags ?? []).some((t) => EVENT_TAGS.includes(t))) continue
-    const involved = [...new Set((details.links ?? []).filter((d) => isInfoNode(d)))]
+    const involved = [
+      ...new Set((details.links ?? []).map(resolveLink).filter((d) => isInfoNode(d))),
+    ]
     for (let i = 0; i < involved.length; i++) {
       for (let j = i + 1; j < involved.length; j++) {
         const key = pairKey(involved[i], involved[j])
