@@ -222,7 +222,7 @@ td > code {
   margin-top: 0.6rem;
 }
 
-// 마지막 폴더(취재·기사)와 맨 위 파일들(서버 정보·취재 노트) 사이 간격
+// 마지막 폴더(취재·기사)와 맨 위 파일(서버 정보) 사이 간격
 .explorer .explorer-ul > li:has(> .folder-container) + li:not(:has(> .folder-container)) {
   margin-top: 0.8rem;
 }
