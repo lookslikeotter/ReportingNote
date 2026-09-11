@@ -356,9 +356,9 @@ tr:has(.bn-lv-scoop) > td {
   background-color: rgba(255, 80, 60, 0.12) !important;
 }
 
-// 📅 이벤트 — 옅은 회색
+// 📅 이벤트 — 옅은 노랑
 tr:has(.bn-lv-event) > td {
-  background-color: rgba(128, 128, 128, 0.12) !important;
+  background-color: rgba(255, 200, 0, 0.16) !important;
 }
 
 // 칸 안쪽 요소가 배경을 덮지 않게
@@ -384,10 +384,16 @@ tr:has(.bn-lv-event) > td * {
     flex: 0 0 auto;
   }
 
+  // 버튼 + 경로 표시가 윗줄을 꽉 채운다 (제목이 이 줄로 올라붙지 않게)
   & > .breadcrumb-container {
-    flex: 1 1 0;
+    flex: 1 1 calc(100% - 44px - 0.4rem);
     min-width: 0;
     margin-top: 0;
+  }
+
+  // 경로 표시가 없는 페이지(첫 화면): 버튼만 한 줄
+  &:not(:has(> .breadcrumb-container)) > .bn-refresh {
+    margin-right: calc(100% - 44px);
   }
 }
 
@@ -436,14 +442,18 @@ tr:has(.bn-lv-event) > td * {
   display: none;
 }
 
-// 봉누도2: 일지·사건 목록 제목 오른쪽 색 안내 (DayLegend.tsx). 제목과 한 줄, 좁으면 아래 줄로
+// 봉누도2: 일지·사건 목록 제목 바로 오른쪽 색 안내 (DayLegend.tsx). 제목은 글자 너비만,
+// 제목과 안내는 글자 기준선을 맞춘다. 좁으면 안내가 아래 줄로
 .page-header > .popover-hint:has(> .bn-legend) > .article-title {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
+  align-self: baseline;
 }
 
 .bn-legend {
   flex: 0 0 auto;
+  align-self: baseline;
+  margin-left: 0.6rem;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -472,7 +482,7 @@ tr:has(.bn-lv-event) > td * {
       background-color: rgba(255, 80, 60, 0.12);
     }
     &.event {
-      background-color: rgba(128, 128, 128, 0.12);
+      background-color: rgba(255, 200, 0, 0.16);
     }
   }
 }
