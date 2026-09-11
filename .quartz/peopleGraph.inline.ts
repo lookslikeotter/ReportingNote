@@ -534,7 +534,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   }
 
   // 인물 페이지에 들어가면 그 인물이 가운데 오도록 화면을 옮긴다 (배율은 그대로)
-  let panToNode: ((id: string) => void) | null = null
+  let panToNode: ((id: string, zoomIn?: boolean) => void) | null = null
 
   if (enableZoom) {
     const zoomBehavior = zoom<HTMLCanvasElement, NodeData>()
@@ -576,26 +576,31 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       )
     }
 
+    // 인물로 이동할 때 확대할 배율 (이미 더 확대돼 있으면 그대로 둔다)
+    const FOCUS_ZOOM = 1.6
     let panFrame = 0
-    panToNode = (id: string) => {
+    panToNode = (id: string, zoomIn = false) => {
       const node = graphData.nodes.find((n) => n.id === id)
       if (!node || node.x === undefined || node.y === undefined) return
-      const k = currentTransform.k
-      const startX = currentTransform.x
-      const startY = currentTransform.y
-      const targetX = width / 2 - k * (node.x + width / 2)
-      const targetY = height / 2 - k * (node.y + height / 2)
+      const k0 = currentTransform.k
+      const k1 = zoomIn ? Math.max(k0, FOCUS_ZOOM) : k0
+      // 지금 화면 가운데가 가리키는 그래프 좌표 → 목표 노드 좌표로, 배율과 함께 부드럽게 옮긴다
+      const c0x = (width / 2 - currentTransform.x) / k0
+      const c0y = (height / 2 - currentTransform.y) / k0
+      const c1x = node.x + width / 2
+      const c1y = node.y + height / 2
       const startTime = performance.now()
-      const duration = 400
+      const duration = 500
       cancelAnimationFrame(panFrame)
       const step = (now: number) => {
         const t = Math.min(1, (now - startTime) / duration)
         const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2
+        const k = k0 + (k1 - k0) * e
+        const cx = c0x + (c1x - c0x) * e
+        const cy = c0y + (c1y - c0y) * e
         canvasSelection.call(
           zoomBehavior.transform,
-          zoomIdentity
-            .translate(startX + (targetX - startX) * e, startY + (targetY - startY) * e)
-            .scale(k),
+          zoomIdentity.translate(width / 2 - k * cx, height / 2 - k * cy).scale(k),
         )
         if (t < 1) panFrame = requestAnimationFrame(step)
       }
@@ -645,7 +650,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         n.gfx.stroke({ width: 2, color: computedStyleMap["--secondary"] })
       }
     }
-    panToNode?.(cur)
+    // 페이지를 옮겨 인물로 갈 때는 이동하면서 확대도 한다
+    panToNode?.(cur, true)
   }
 
   return {
