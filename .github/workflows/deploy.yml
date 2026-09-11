@@ -69,6 +69,15 @@ jobs:
         working-directory: quartz
         run: npx quartz build
 
+      # 자동 갱신용 버전 표시: 기록(build)·사이트 코드(code) 버전을 static/bn-version.json과 모든 페이지 <head>에 넣는다
+      # (liveUpdate.inline.ts가 이 둘을 비교한다. code는 .quartz·.github 파일 내용의 해시)
+      - name: Stamp version
+        run: |
+          CODE=$(find notes/.quartz notes/.github -type f -print0 | sort -z | xargs -0 sha1sum | sha1sum | cut -c1-12)
+          BUILD="$GITHUB_SHA"
+          printf '{"build":"%s","code":"%s"}\n' "$BUILD" "$CODE" > quartz/public/static/bn-version.json
+          find quartz/public -name '*.html' -exec sed -i "s|</head>|<meta name=\"bn-build\" content=\"$BUILD\"><meta name=\"bn-code\" content=\"$CODE\"></head>|" {} +
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

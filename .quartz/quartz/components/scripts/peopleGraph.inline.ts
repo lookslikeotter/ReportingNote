@@ -27,6 +27,7 @@ import {
   eventPairs,
   factionIndex,
   linkResolver,
+  loadContentIndex,
   nearestLink,
   nodeLabel,
   normalizeName,
@@ -106,7 +107,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   } = JSON.parse(graph.dataset["cfg"]!) as D3Config
 
   const data: ContentData = new Map(
-    Object.entries<ContentDetails>(await fetchData).map(([k, v]) => [
+    Object.entries<ContentDetails>(await loadContentIndex()).map(([k, v]) => [
       simplifySlug(k as FullSlug),
       v,
     ]),
@@ -646,6 +647,9 @@ function destroyPersistentPeopleGraph() {
   persistentPeopleGraph?.cleanup()
   persistentPeopleGraph = null
 }
+
+// 자동 갱신으로 새 기록이 오면 그려 둔 그래프를 버린다 (이어지는 페이지 갱신 때 새 데이터로 다시 그린다)
+document.addEventListener("bn-content-updated", () => destroyPersistentPeopleGraph())
 
 function cleanupPeopleGlobalGraphs() {
   for (const cleanup of peopleGlobalGraphCleanups) {

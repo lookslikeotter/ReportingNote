@@ -7,6 +7,11 @@ import { FullSlug, SimpleSlug, resolveRelative, simplifySlug } from "../../util/
 
 export type ContentData = Map<SimpleSlug, ContentDetails>
 
+// 사이트 데이터(contentIndex). 자동 갱신(liveUpdate.inline.ts)이 새 데이터를 window.bnContentIndex에 넣으면 그걸 쓴다
+export function loadContentIndex(): Promise<Record<string, ContentDetails>> {
+  return (window as any).bnContentIndex ?? fetchData
+}
+
 // ── 노드 ──
 
 // 분류 태그별 노드 색 (앞에 있는 태그가 우선). 해당 태그가 없으면 fallback(기본 글자색)
@@ -213,6 +218,8 @@ function fetchDayPage(url: string): Promise<Document | null> {
   }
   return p
 }
+// 자동 갱신으로 새 기록이 오면 받아 둔 일지 페이지를 버린다
+document.addEventListener("bn-content-updated", () => dayPageCache.clear())
 
 // 일지 표 머리줄 (일지 페이지를 못 읽었을 때만 쓴다)
 function defaultHead(): HTMLElement {
