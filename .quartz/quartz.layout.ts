@@ -6,7 +6,7 @@ import ExplorerDefaults from "./quartz/components/ExplorerDefaults"
 // 실제 날짜가 보이지 않도록 ContentMeta(수정일·읽는 시간)는 넣지 않는다.
 // 왼쪽 위 사이트 제목(PageTitle)은 넣지 않는다.
 
-// 폴더는 기본으로 접고, ExplorerDefaults가 '00 취재 노트'·'01 일지'만 처음에 펼쳐 둔다.
+// 폴더는 기본으로 접고, ExplorerDefaults가 '01 일지'만 처음에 펼쳐 둔다.
 const explorer = Component.Explorer({
   folderDefaultState: "collapsed",
   folderClickBehavior: "collapse",
