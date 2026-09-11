@@ -49,11 +49,14 @@ type NodeData = {
 type SimpleLinkData = {
   source: SimpleSlug
   target: SimpleSlug
+  // 소속 선 (같은 조직 태그를 가진 인물끼리)
+  member?: boolean
 }
 
 type LinkData = {
   source: NodeData
   target: NodeData
+  member?: boolean
 } & SimulationLinkDatum<NodeData>
 
 type LinkRenderData = GraphicsInfo & {
@@ -122,6 +125,34 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     }
   }
 
+  // 같은 소속(조직 태그가 같은) 인물끼리 소속 선으로 잇는다. 조직 태그 = 세력 노트 이름과 같은 태그
+  // (띄어쓰기·하이픈을 빼고 비교: 태그 판도라연구소 = 노트 판도라-연구소)
+  const normalizeName = (s: string) => s.replace(/[\s-]/g, "")
+  const pairKey = (a: string, b: string) => (a < b ? a + "|" + b : b + "|" + a)
+  const orgNames = new Set<string>()
+  for (const [id, details] of data.entries()) {
+    if (id.startsWith("03-세력/") && !id.endsWith("/") && !id.endsWith("세력-목록")) {
+      const base = id.split("/").pop() ?? ""
+      if (base) orgNames.add(normalizeName(base))
+      if (details.title) orgNames.add(normalizeName(details.title))
+    }
+  }
+  const orgsOf = (id: SimpleSlug) =>
+    (data.get(id)?.tags ?? []).map(normalizeName).filter((t) => t && orgNames.has(t))
+  const memberPairs = new Set<string>()
+  const peopleList = [...people]
+  for (let i = 0; i < peopleList.length; i++) {
+    for (let j = i + 1; j < peopleList.length; j++) {
+      const a = peopleList[i]
+      const b = peopleList[j]
+      const orgsA = orgsOf(a)
+      if (orgsOf(b).some((o) => orgsA.includes(o))) {
+        memberPairs.add(pairKey(a, b))
+        links.push({ source: a, target: b, member: true })
+      }
+    }
+  }
+
   const tweens = new Map<string, TweenNode>()
 
   const nodes = [...people].map((url) => {
@@ -132,12 +163,23 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       tags: data.get(url)?.tags ?? [],
     }
   })
+  // 같은 두 인물 사이에 소속 선이 있으면 일반 링크 선은 빼고, 겹치는 선은 하나만 남긴다
+  const seenLinks = new Set<string>()
   const graphData: { nodes: NodeData[]; links: LinkData[] } = {
     nodes,
-    links: links.map((l) => ({
-      source: nodes.find((n) => n.id === l.source)!,
-      target: nodes.find((n) => n.id === l.target)!,
-    })),
+    links: links
+      .filter((l) => {
+        const key = pairKey(l.source, l.target)
+        if (!l.member && memberPairs.has(key)) return false
+        if (seenLinks.has(key)) return false
+        seenLinks.add(key)
+        return true
+      })
+      .map((l) => ({
+        source: nodes.find((n) => n.id === l.source)!,
+        target: nodes.find((n) => n.id === l.target)!,
+        member: l.member ?? false,
+      })),
   }
 
   const width = graph.offsetWidth
@@ -147,7 +189,14 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   const simulation: Simulation<NodeData, LinkData> = forceSimulation<NodeData>(graphData.nodes)
     .force("charge", forceManyBody().strength(-100 * repelForce))
     .force("center", forceCenter().strength(centerForce))
-    .force("link", forceLink(graphData.links).distance(linkDistance))
+    .force("link", forceLink(graphData.links.filter((l) => !l.member)).distance(linkDistance))
+    // 소속 선은 더 세게, 더 가깝게 당긴다 (같은 소속끼리 모이게)
+    .force(
+      "member",
+      forceLink(graphData.links.filter((l) => l.member))
+        .distance(linkDistance * 0.8)
+        .strength(1),
+    )
     .force("collide", forceCollide<NodeData>((n) => nodeRadius(n)).iterations(3))
 
   const radius = (Math.min(width, height) / 2) * 0.8
@@ -240,7 +289,12 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         alpha = l.active ? 1 : 0.2
       }
 
-      l.color = l.active ? computedStyleMap["--gray"] : computedStyleMap["--lightgray"]
+      // 소속 선은 항상 진하게
+      l.color = l.simulationData.member
+        ? computedStyleMap["--darkgray"]
+        : l.active
+          ? computedStyleMap["--gray"]
+          : computedStyleMap["--lightgray"]
       tweenGroup.add(new Tweened<LinkRenderData>(l).to({ alpha }, 200))
     }
 
@@ -424,7 +478,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     const linkRenderDatum: LinkRenderData = {
       simulationData: l,
       gfx,
-      color: computedStyleMap["--lightgray"],
+      color: l.member ? computedStyleMap["--darkgray"] : computedStyleMap["--lightgray"],
       alpha: 1,
       active: false,
     }
@@ -570,7 +624,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       l.gfx.moveTo(linkData.source.x! + width / 2, linkData.source.y! + height / 2)
       l.gfx
         .lineTo(linkData.target.x! + width / 2, linkData.target.y! + height / 2)
-        .stroke({ alpha: l.alpha, width: 1, color: l.color })
+        .stroke({ alpha: l.alpha, width: l.simulationData.member ? 2.5 : 1, color: l.color })
     }
 
     tweens.forEach((t) => t.update(time))
