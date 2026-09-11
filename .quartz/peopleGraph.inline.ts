@@ -479,6 +479,9 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     }
   }
 
+  // 인물 페이지에 들어가면 그 인물이 가운데 오도록 화면을 옮긴다 (배율은 그대로)
+  let panToNode: ((id: string) => void) | null = null
+
   if (enableZoom) {
     const zoomBehavior = zoom<HTMLCanvasElement, NodeData>()
       .extent([
@@ -518,6 +521,35 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         zoomIdentity.translate(width / 2 - k * cx, height / 2 - k * cy).scale(k),
       )
     }
+
+    let panFrame = 0
+    panToNode = (id: string) => {
+      const node = graphData.nodes.find((n) => n.id === id)
+      if (!node || node.x === undefined || node.y === undefined) return
+      const k = currentTransform.k
+      const startX = currentTransform.x
+      const startY = currentTransform.y
+      const targetX = width / 2 - k * (node.x + width / 2)
+      const targetY = height / 2 - k * (node.y + height / 2)
+      const startTime = performance.now()
+      const duration = 400
+      cancelAnimationFrame(panFrame)
+      const step = (now: number) => {
+        const t = Math.min(1, (now - startTime) / duration)
+        const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2
+        canvasSelection.call(
+          zoomBehavior.transform,
+          zoomIdentity
+            .translate(startX + (targetX - startX) * e, startY + (targetY - startY) * e)
+            .scale(k),
+        )
+        if (t < 1) panFrame = requestAnimationFrame(step)
+      }
+      panFrame = requestAnimationFrame(step)
+    }
+
+    // 처음 그릴 때도 인물 페이지면 그 인물 쪽으로
+    panToNode(slug)
   }
 
   let stopAnimation = false
@@ -559,6 +591,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         n.gfx.stroke({ width: 2, color: computedStyleMap["--secondary"] })
       }
     }
+    panToNode?.(cur)
   }
 
   return {
