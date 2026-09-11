@@ -127,6 +127,79 @@ td > code {
   border-radius: 12px;
 }
 
+// ── 봉누도2: 탐색기 (Notion 사이드바 스타일) ──
+:root {
+  --bn-sidebar: #fbfbfa;
+  --bn-hover: rgba(55, 53, 47, 0.08);
+}
+:root[saved-theme="dark"] {
+  --bn-sidebar: #202020;
+  --bn-hover: rgba(255, 255, 255, 0.06);
+}
+
+@media all and (min-width: 800px) {
+  // 탐색기 칸 옅은 배경
+  .page > #quartz-body .sidebar.left {
+    background-color: var(--bn-sidebar);
+  }
+
+  // 목록 위 "탐색기" 제목 숨김 (모바일 메뉴 버튼은 그대로)
+  .explorer button.desktop-explorer {
+    display: none;
+  }
+}
+
+.explorer .explorer-content {
+  font-size: 14px;
+
+  // 파일: 둥근 배경, 마우스 올리면·지금 페이지면 옅은 배경
+  & ul li > a {
+    display: block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    color: var(--darkgray);
+    opacity: 1;
+    line-height: 1.6;
+
+    &:hover {
+      background-color: var(--bn-hover);
+    }
+
+    &.active {
+      background-color: var(--bn-hover);
+      color: var(--dark);
+      font-weight: 500;
+    }
+  }
+
+  // 폴더: 이름은 굵게 기본 글자색, 마우스 올리면 옅은 배경
+  & .folder-container {
+    border-radius: 6px;
+    padding: 1px 4px;
+
+    &:hover {
+      background-color: var(--bn-hover);
+    }
+
+    & div > button span {
+      font-size: 14px;
+      color: var(--dark);
+      font-weight: 600;
+    }
+  }
+
+  & .folder-icon {
+    color: var(--gray);
+  }
+
+  // 하위 항목 안내선 (옅은 세로선)
+  & .folder-outer > ul {
+    margin-left: 10px;
+    padding-left: 0.6rem;
+    border-left: 1px solid var(--lightgray);
+  }
+}
+
 // 봉누도2: 오른쪽 사이드바 그래프 2개 — 제목 숨김, 크게
 .graph > h3 {
   display: none;

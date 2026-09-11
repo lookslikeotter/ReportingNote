@@ -9,10 +9,15 @@ import FontLoader from "./quartz/components/FontLoader"
 // 왼쪽 위 사이트 제목(PageTitle)은 넣지 않는다.
 
 // 폴더는 기본으로 접고, ExplorerDefaults가 '01 일지'만 처음에 펼쳐 둔다.
+// 이름 앞 번호(01 일지, 001 이윤진)는 화면에서만 떼고, 정렬은 번호대로 한 뒤에 뗀다 (sort → map 순서)
 const explorer = Component.Explorer({
   folderDefaultState: "collapsed",
   folderClickBehavior: "collapse",
   useSavedState: true,
+  order: ["filter", "sort", "map"],
+  mapFn: (node) => {
+    node.displayName = node.displayName.replace(/^\d+\s+/, "")
+  },
 })
 
 // components shared across all pages
