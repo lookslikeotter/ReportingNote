@@ -49,14 +49,14 @@ type NodeData = {
 type SimpleLinkData = {
   source: SimpleSlug
   target: SimpleSlug
-  // 소속 선 (같은 조직 태그를 가진 인물끼리)
-  member?: boolean
+  // 사건 인연: 두 사람이 함께 엮인 📰 사건·🔥 특종의 수
+  weight: number
 }
 
 type LinkData = {
   source: NodeData
   target: NodeData
-  member?: boolean
+  weight: number
 } & SimulationLinkDatum<NodeData>
 
 type LinkRenderData = GraphicsInfo & {
@@ -114,21 +114,32 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     }
   }
 
-  // 인물 노트끼리의 링크만 선으로
-  const links: SimpleLinkData[] = []
-  for (const source of people) {
-    const outgoing = data.get(source)?.links ?? []
-    for (const dest of outgoing) {
-      if (dest !== source && people.has(dest)) {
-        links.push({ source, target: dest })
+  // 선은 '사건 인연'만: 사건 노트 중 📰 사건·🔥 특종 태그가 붙은 노트에 함께 링크된 두 인물을 잇는다.
+  // 함께 엮인 사건이 많을수록 weight가 커져 선이 굵어진다.
+  // 인물 노트끼리의 링크, ☕ 일상 사건(태그 없음)은 선을 만들지 않는다.
+  const EVENT_TAGS = ["사건", "특종"]
+  const pairKey = (a: string, b: string) => (a < b ? a + "|" + b : b + "|" + a)
+  const pairWeight = new Map<string, SimpleLinkData>()
+  for (const [, details] of data.entries()) {
+    if (!(details.tags ?? []).some((t) => EVENT_TAGS.includes(t))) continue
+    const involved = [...new Set((details.links ?? []).filter((d) => people.has(d)))]
+    for (let i = 0; i < involved.length; i++) {
+      for (let j = i + 1; j < involved.length; j++) {
+        const key = pairKey(involved[i], involved[j])
+        const entry = pairWeight.get(key)
+        if (entry) {
+          entry.weight++
+        } else {
+          pairWeight.set(key, { source: involved[i], target: involved[j], weight: 1 })
+        }
       }
     }
   }
+  const links: SimpleLinkData[] = [...pairWeight.values()]
 
-  // 같은 소속(조직 태그가 같은) 인물끼리 소속 선으로 잇는다. 조직 태그 = 세력 노트 이름과 같은 태그
-  // (띄어쓰기·하이픈을 빼고 비교: 태그 판도라연구소 = 노트 판도라-연구소)
+  // 같은 소속끼리는 선을 그리지 않고, 보이지 않는 힘으로 가까이 모은다.
+  // 조직 태그 = 세력 노트 이름과 같은 태그 (띄어쓰기·하이픈을 빼고 비교: 판도라연구소 = 판도라-연구소)
   const normalizeName = (s: string) => s.replace(/[\s-]/g, "")
-  const pairKey = (a: string, b: string) => (a < b ? a + "|" + b : b + "|" + a)
   const orgNames = new Set<string>()
   for (const [id, details] of data.entries()) {
     if (id.startsWith("03-세력/") && !id.endsWith("/") && !id.endsWith("세력-목록")) {
@@ -137,20 +148,10 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       if (details.title) orgNames.add(normalizeName(details.title))
     }
   }
-  const orgsOf = (id: SimpleSlug) =>
-    (data.get(id)?.tags ?? []).map(normalizeName).filter((t) => t && orgNames.has(t))
-  const memberPairs = new Set<string>()
-  const peopleList = [...people]
-  for (let i = 0; i < peopleList.length; i++) {
-    for (let j = i + 1; j < peopleList.length; j++) {
-      const a = peopleList[i]
-      const b = peopleList[j]
-      const orgsA = orgsOf(a)
-      if (orgsOf(b).some((o) => orgsA.includes(o))) {
-        memberPairs.add(pairKey(a, b))
-        links.push({ source: a, target: b, member: true })
-      }
-    }
+  const orgOf = new Map<SimpleSlug, string>()
+  for (const id of people) {
+    const org = (data.get(id)?.tags ?? []).map(normalizeName).find((t) => t && orgNames.has(t))
+    if (org) orgOf.set(id, org)
   }
 
   const tweens = new Map<string, TweenNode>()
@@ -163,23 +164,36 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       tags: data.get(url)?.tags ?? [],
     }
   })
-  // 같은 두 인물 사이에 소속 선이 있으면 일반 링크 선은 빼고, 겹치는 선은 하나만 남긴다
-  const seenLinks = new Set<string>()
   const graphData: { nodes: NodeData[]; links: LinkData[] } = {
     nodes,
-    links: links
-      .filter((l) => {
-        const key = pairKey(l.source, l.target)
-        if (!l.member && memberPairs.has(key)) return false
-        if (seenLinks.has(key)) return false
-        seenLinks.add(key)
-        return true
-      })
-      .map((l) => ({
-        source: nodes.find((n) => n.id === l.source)!,
-        target: nodes.find((n) => n.id === l.target)!,
-        member: l.member ?? false,
-      })),
+    links: links.map((l) => ({
+      source: nodes.find((n) => n.id === l.source)!,
+      target: nodes.find((n) => n.id === l.target)!,
+      weight: l.weight,
+    })),
+  }
+
+  // 같은 소속끼리 모으는 힘: 소속별 무게중심 쪽으로 조금씩 당긴다 (선은 그리지 않음)
+  const CLUSTER_STRENGTH = 0.15
+  const clusterForce = (alpha: number) => {
+    const sums = new Map<string, { x: number; y: number; n: number }>()
+    for (const n of graphData.nodes) {
+      const org = orgOf.get(n.id)
+      if (!org) continue
+      const s = sums.get(org) ?? { x: 0, y: 0, n: 0 }
+      s.x += n.x ?? 0
+      s.y += n.y ?? 0
+      s.n++
+      sums.set(org, s)
+    }
+    for (const n of graphData.nodes) {
+      const org = orgOf.get(n.id)
+      if (!org) continue
+      const s = sums.get(org)!
+      if (s.n < 2) continue
+      n.vx = (n.vx ?? 0) + (s.x / s.n - (n.x ?? 0)) * CLUSTER_STRENGTH * alpha
+      n.vy = (n.vy ?? 0) + (s.y / s.n - (n.y ?? 0)) * CLUSTER_STRENGTH * alpha
+    }
   }
 
   const width = graph.offsetWidth
@@ -189,14 +203,14 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   const simulation: Simulation<NodeData, LinkData> = forceSimulation<NodeData>(graphData.nodes)
     .force("charge", forceManyBody().strength(-100 * repelForce))
     .force("center", forceCenter().strength(centerForce))
-    .force("link", forceLink(graphData.links.filter((l) => !l.member)).distance(linkDistance))
-    // 소속 선은 더 세게, 더 가깝게 당긴다 (같은 소속끼리 모이게)
+    // 사건 인연 선: 함께 엮인 사건이 많을수록 더 가깝게
     .force(
-      "member",
-      forceLink(graphData.links.filter((l) => l.member))
-        .distance(linkDistance * 0.8)
-        .strength(1),
+      "link",
+      forceLink(graphData.links).distance(
+        (l: LinkData) => linkDistance / (1 + 0.3 * (l.weight - 1)),
+      ),
     )
+    .force("cluster", clusterForce)
     .force("collide", forceCollide<NodeData>((n) => nodeRadius(n)).iterations(3))
 
   const radius = (Math.min(width, height) / 2) * 0.8
@@ -289,12 +303,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         alpha = l.active ? 1 : 0.2
       }
 
-      // 소속 선은 항상 진하게
-      l.color = l.simulationData.member
-        ? computedStyleMap["--darkgray"]
-        : l.active
-          ? computedStyleMap["--gray"]
-          : computedStyleMap["--lightgray"]
+      // 사건 인연 선은 의미 있는 선만 남으므로 기본보다 진하게, 마우스를 올리면 더 진하게
+      l.color = l.active ? computedStyleMap["--darkgray"] : computedStyleMap["--gray"]
       tweenGroup.add(new Tweened<LinkRenderData>(l).to({ alpha }, 200))
     }
 
@@ -478,7 +488,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     const linkRenderDatum: LinkRenderData = {
       simulationData: l,
       gfx,
-      color: l.member ? computedStyleMap["--darkgray"] : computedStyleMap["--lightgray"],
+      color: computedStyleMap["--gray"],
       alpha: 1,
       active: false,
     }
@@ -629,7 +639,12 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       l.gfx.moveTo(linkData.source.x! + width / 2, linkData.source.y! + height / 2)
       l.gfx
         .lineTo(linkData.target.x! + width / 2, linkData.target.y! + height / 2)
-        .stroke({ alpha: l.alpha, width: l.simulationData.member ? 2.5 : 1, color: l.color })
+        .stroke({
+          alpha: l.alpha,
+          // 함께 엮인 사건 수에 따라 굵게: 1건 1.8px, 2건 2.6px, 3건 3.4px, 최대 4px
+          width: Math.min(1 + 0.8 * l.simulationData.weight, 4),
+          color: l.color,
+        })
     }
 
     tweens.forEach((t) => t.update(time))
