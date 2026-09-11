@@ -136,8 +136,8 @@ export async function tableEventPairs(
 //   1건: 아주 얇은 선 → 1건마다 조금씩 굵어져 EVENT_MAX_WIDTH까지 (6건)
 //   그다음부터는 굵기는 그대로, 색이 조금씩 진해져 EVENT_DARKEN_STEPS건 뒤(12건) 가장 진한 색(--dark, 라이트 모드 검정)
 const EVENT_MIN_WIDTH = 0.5
-const EVENT_WIDTH_STEP = 0.5
-const EVENT_MAX_WIDTH = 3
+const EVENT_WIDTH_STEP = 0.3
+const EVENT_MAX_WIDTH = 2
 const EVENT_DARKEN_STEPS = 6
 
 export function eventLinkWidth(weight: number): number {
