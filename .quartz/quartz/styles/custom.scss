@@ -450,6 +450,11 @@ tr:has(.bn-lv-event) > td * {
   align-self: baseline;
 }
 
+// 윗줄 규칙(나머지 칸은 한 줄씩 차지 = flex-basis 100%)보다 우선하도록 같은 경로로 지정
+.page-header > .popover-hint:has(> .bn-legend) > .bn-legend {
+  flex: 0 0 auto;
+}
+
 .bn-legend {
   flex: 0 0 auto;
   align-self: baseline;
