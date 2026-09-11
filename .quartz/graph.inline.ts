@@ -659,17 +659,40 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     for (const l of linkRenderData) {
       const linkData = l.simulationData
       l.gfx.clear()
-      l.gfx.moveTo(linkData.source.x! + width / 2, linkData.source.y! + height / 2)
-      l.gfx
-        .lineTo(linkData.target.x! + width / 2, linkData.target.y! + height / 2)
-        .stroke({
-          alpha: l.alpha,
-          // 봉누도2: 소속 선 2.5px, 사건 인연 선은 함께 엮인 사건 수에 따라 1.8px ~ 최대 4px
-          width: l.simulationData.member
-            ? 2.5
-            : Math.min(1 + 0.8 * (l.simulationData.weight ?? 1), 4),
-          color: l.color,
-        })
+      const x1 = linkData.source.x! + width / 2
+      const y1 = linkData.source.y! + height / 2
+      const x2 = linkData.target.x! + width / 2
+      const y2 = linkData.target.y! + height / 2
+
+      if (linkData.member) {
+        // 봉누도2: 소속 선은 점선 (Pixi에 점선 기능이 없어 짧은 선분으로 나눠 그린다).
+        // 선분·빈칸 길이는 확대 배율로 나눠 화면에서 일정하게 보이게 한다.
+        const k = currentTransform.k
+        const dash = 5 / k
+        const gap = 4 / k
+        const dx = x2 - x1
+        const dy = y2 - y1
+        const len = Math.hypot(dx, dy)
+        if (len > 0) {
+          const ux = dx / len
+          const uy = dy / len
+          for (let d = 0; d < len; d += dash + gap) {
+            const e = Math.min(d + dash, len)
+            l.gfx.moveTo(x1 + ux * d, y1 + uy * d).lineTo(x1 + ux * e, y1 + uy * e)
+          }
+          l.gfx.stroke({ alpha: l.alpha, width: 1.5, color: l.color })
+        }
+      } else {
+        // 봉누도2: 사건 인연 선은 실선, 함께 엮인 사건 수에 따라 1.8px ~ 최대 4px
+        l.gfx
+          .moveTo(x1, y1)
+          .lineTo(x2, y2)
+          .stroke({
+            alpha: l.alpha,
+            width: Math.min(1 + 0.8 * (linkData.weight ?? 1), 4),
+            color: l.color,
+          })
+      }
     }
 
     tweens.forEach((t) => t.update(time))
