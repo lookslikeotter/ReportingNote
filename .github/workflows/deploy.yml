@@ -70,6 +70,14 @@ jobs:
           cp notes/.quartz/peopleGraph.inline.ts quartz/quartz/components/scripts/peopleGraph.inline.ts
           cp notes/.quartz/graph.inline.ts quartz/quartz/components/scripts/graph.inline.ts
 
+      # 사이트 테마 (quartz-themes). custom.scss를 복사한 뒤에 실행해야 테마 불러오기 줄이 들어간다.
+      # 테마를 바꾸려면 THEME_NAME만 바꾼다. 미리보기: https://quartz-themes.github.io/<테마이름>
+      - name: Apply theme
+        working-directory: quartz
+        env:
+          THEME_NAME: tokyo-night
+        run: curl -s -S https://raw.githubusercontent.com/saberzero1/quartz-themes/master/action.sh | bash -s -- $THEME_NAME
+
       - name: Build
         working-directory: quartz
         run: npx quartz build
