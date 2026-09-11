@@ -79,6 +79,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   const slug = simplifySlug(fullSlug)
   const visited = getVisited()
   removeAllChildren(graph)
+  // 글꼴을 다 불러온 뒤에 그려야 이름표가 대체 글꼴로 그려지지 않는다
+  await document.fonts?.ready
 
   let {
     drag: enableDrag,
@@ -254,7 +256,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     const tweenGroup = new TweenGroup()
 
     // 현재 확대 배율을 나눠서, 화면에서 보이는 글자 크기를 일정하게
-    const defaultScale = 1 / (scale * currentTransform.k)
+    const defaultScale = 1 / currentTransform.k
     const activeScale = defaultScale * 1.1
     for (const n of nodeRenderData) {
       const nodeId = n.simulationData.id
@@ -356,16 +358,17 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       alpha: 1,
       anchor: { x: 0.5, y: 1.2 },
       style: {
-        fontSize: fontSize * 15,
+        // 화면에 보일 크기 그대로 그린다 (축소하며 흐려지지 않게)
+        fontSize: (fontSize * 15) / scale,
         fill: computedStyleMap["--dark"],
         fontFamily: computedStyleMap["--bodyFont"],
         // 배경색 테두리로 선·점 위에서도 글자가 묻히지 않게
         fontWeight: "600",
-        stroke: { color: computedStyleMap["--light"], width: 4, join: "round" },
+        stroke: { color: computedStyleMap["--light"], width: 3, join: "round" },
       },
-      resolution: window.devicePixelRatio * 4,
+      resolution: window.devicePixelRatio,
     })
-    label.scale.set(1 / scale)
+    label.scale.set(1)
 
     let oldLabelOpacity = 1
     const gfx = new Graphics({
@@ -488,7 +491,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
 
         // 확대·축소해도 이름표 글자 크기는 화면에서 그대로
         for (const n of nodeRenderData) {
-          n.label.scale.set(1 / (scale * transform.k))
+          n.label.scale.set(1 / transform.k)
         }
       })
 
