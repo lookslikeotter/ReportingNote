@@ -821,7 +821,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         .stroke({
           alpha: l.alpha,
           // 함께 엮인 사건 수에 따라 굵게: 1건 1.8px, 2건 2.6px, 3건 3.4px, 최대 4px
-          width: Math.min(1 + 0.8 * l.simulationData.weight, 4) + (l === hoveredLink ? 1.5 : 0),
+          width:
+            Math.min(0.8 + 0.6 * (l.simulationData.weight - 1), 4) + (l === hoveredLink ? 1.5 : 0),
           color: l.color,
         })
     }

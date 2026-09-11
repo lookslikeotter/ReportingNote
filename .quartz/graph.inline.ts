@@ -947,7 +947,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
             width:
               (linkData.relation
                 ? (RELATION_STYLES[linkData.relation]?.width ?? 2)
-                : Math.min(1 + 0.8 * (linkData.weight ?? 1), 4)) +
+                : Math.min(0.8 + 0.6 * ((linkData.weight ?? 1) - 1), 4)) +
               (l === hoveredLink ? 1.5 : 0),
             color: l.color,
           })
