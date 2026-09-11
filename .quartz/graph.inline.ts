@@ -68,7 +68,61 @@ function eventOrder(title: string): number {
   return m ? Number(m[1]) * 1000 + Number(m[2]) : 0
 }
 
-function showEdgePopup(title: string, subtitle: string, items: EdgePopupItem[]) {
+// 일지 페이지(N일차)의 사건 표에서 이 사건들의 행만 골라, 일지와 같은 모양의 표로 만든다
+const dayPageCache = new Map<string, Promise<Document | null>>()
+function fetchDayPage(url: string): Promise<Document | null> {
+  let p = dayPageCache.get(url)
+  if (!p) {
+    p = fetch(url)
+      .then((r) => (r.ok ? r.text() : Promise.reject()))
+      .then((html) => new DOMParser().parseFromString(html, "text/html"))
+      .catch(() => null)
+    dayPageCache.set(url, p)
+  }
+  return p
+}
+
+async function buildEventTable(
+  currentSlug: FullSlug,
+  events: SimpleSlug[],
+  data: Map<SimpleSlug, ContentDetails>,
+): Promise<HTMLElement | null> {
+  const here = window.location.toString()
+  let thead: Element | null = null
+  const tbody = document.createElement("tbody")
+  for (const id of events) {
+    const day = (data.get(id)?.title ?? "").match(/^(\d+)일차-/)?.[1]
+    if (!day) return null
+    const dayUrl = new URL(
+      resolveRelative(currentSlug, `01-일지/${day}일차` as SimpleSlug),
+      here,
+    ).toString()
+    const table = (await fetchDayPage(dayUrl))?.querySelector("article table")
+    if (!table) return null
+    const eventPath = new URL(resolveRelative(currentSlug, id), here).pathname
+    const row = [...table.querySelectorAll("tbody tr")].find((tr) =>
+      [...tr.querySelectorAll("a[href]")].some(
+        (a) => new URL(a.getAttribute("href")!, dayUrl).pathname === eventPath,
+      ),
+    )
+    if (!row) return null
+    thead ??= table.querySelector("thead")
+    const clone = document.importNode(row, true)
+    clone.querySelectorAll("a[href]").forEach((a) => {
+      a.setAttribute("href", new URL(a.getAttribute("href")!, dayUrl).toString())
+    })
+    tbody.append(clone)
+  }
+  const out = document.createElement("table")
+  if (thead) out.append(document.importNode(thead, true))
+  out.append(tbody)
+  const wrap = document.createElement("div")
+  wrap.className = "bn-edge-table"
+  wrap.append(out)
+  return wrap
+}
+
+function showEdgePopup(title: string, subtitle: string, content: EdgePopupItem[] | HTMLElement) {
   document.querySelector(".bn-edge-popup")?.remove()
   const outer = document.createElement("div")
   outer.className = "bn-edge-popup"
@@ -82,31 +136,32 @@ function showEdgePopup(title: string, subtitle: string, items: EdgePopupItem[]) 
   sub.textContent = subtitle
   card.append(head, sub)
 
-  const list = document.createElement("ul")
-  list.className = "bn-edge-list"
-  for (const it of items) {
-    const li = document.createElement("li")
-    const label = document.createElement(it.href ? "a" : "span")
-    label.className = "bn-edge-item"
-    label.textContent = `${it.icon} ${it.label}`
-    if (it.href) {
-      ;(label as HTMLAnchorElement).href = it.href
-      label.addEventListener("click", (e) => {
-        e.preventDefault()
-        close()
-        window.spaNavigate(new URL(it.href!, window.location.toString()))
-      })
+  if (Array.isArray(content)) {
+    const list = document.createElement("ul")
+    list.className = "bn-edge-list"
+    for (const it of content) {
+      const li = document.createElement("li")
+      const label = document.createElement(it.href ? "a" : "span")
+      label.className = "bn-edge-item"
+      label.textContent = `${it.icon} ${it.label}`
+      if (it.href) (label as HTMLAnchorElement).href = it.href
+      li.append(label)
+      if (it.desc) {
+        const desc = document.createElement("div")
+        desc.className = "bn-edge-desc"
+        desc.textContent = it.desc
+        li.append(desc)
+      }
+      list.append(li)
     }
-    li.append(label)
-    if (it.desc) {
-      const desc = document.createElement("div")
-      desc.className = "bn-edge-desc"
-      desc.textContent = it.desc
-      li.append(desc)
-    }
-    list.append(li)
+    card.append(list)
+  } else {
+    card.append(content)
   }
-  card.append(list)
+  // 창 안의 링크를 누르면 창을 닫는다 (페이지 이동은 사이트의 링크 처리에 맡긴다)
+  card.addEventListener("click", (e) => {
+    if ((e.target as Element).closest("a")) close()
+  })
   outer.append(card)
   document.body.append(outer)
 
@@ -844,7 +899,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     renderPixiFromD3()
   }
 
-  function openLinkPopup(ld: LinkData) {
+  async function openLinkPopup(ld: LinkData) {
     const a = ld.source
     const b = ld.target
     const title = `${a.text} ─ ${b.text}`
@@ -865,9 +920,12 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       const events = [...(ld.events ?? [])].sort(
         (x, y) => eventOrder(data.get(x)?.title ?? "") - eventOrder(data.get(y)?.title ?? ""),
       )
+      // 일지 표 모양으로. 일지 페이지를 못 읽으면 간단한 목록으로 대신한다
+      const table = await buildEventTable(fullSlug, events, data)
       showEdgePopup(
         title,
         `함께 엮인 사건 ${events.length}건`,
+        table ??
         events.map((id) => {
           const d = data.get(id)
           return {
