@@ -76,6 +76,20 @@
   line-height: 1;
 }
 
+// 버튼 전체가 반투명(0.5)이라 글자도 흐려진다 → 버튼은 불투명하게, 아이콘만 반투명, 글자는 조금 진하게
+.sidebar .graph > .graph-outer > .people-global-graph-icon,
+.sidebar .graph > .graph-outer > .global-graph-icon {
+  opacity: 1;
+
+  & > svg {
+    opacity: 0.5;
+  }
+
+  &::before {
+    opacity: 0.85;
+  }
+}
+
 .graph > .graph-outer > .people-global-graph-icon::before {
   content: "인물 그래프 크게 보기";
 }
