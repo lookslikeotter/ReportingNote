@@ -393,6 +393,9 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         fontSize: fontSize * 15,
         fill: computedStyleMap["--dark"],
         fontFamily: computedStyleMap["--bodyFont"],
+        // 봉누도2: 배경색 테두리로 선·점 위에서도 글자가 묻히지 않게
+        fontWeight: "600",
+        stroke: { color: computedStyleMap["--light"], width: 4, join: "round" },
       },
       resolution: window.devicePixelRatio * 4,
     })

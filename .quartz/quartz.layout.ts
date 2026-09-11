@@ -49,7 +49,12 @@ export const defaultContentPageLayout: PageLayout = {
     explorer,
   ],
   // 오른쪽은 그래프 2개만 (위: 인물 그래프, 아래: 기본 그래프). 목차·백링크는 넣지 않는다.
-  right: [PeopleGraph(), Component.Graph()],
+  right: [
+    PeopleGraph(),
+    Component.Graph({
+      localGraph: { fontSize: 0.9, repelForce: 0.8, linkDistance: 50, showTags: false },
+    }),
+  ],
 }
 
 // components for pages that display lists of pages  (e.g. tags or folders)
