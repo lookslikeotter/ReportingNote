@@ -52,8 +52,8 @@ export const defaultContentPageLayout: PageLayout = {
   right: [
     PeopleGraph(),
     Component.Graph({
-      localGraph: { fontSize: 0.9, repelForce: 0.8, linkDistance: 50, showTags: false },
-      globalGraph: { fontSize: 0.9, showTags: false },
+      localGraph: { fontSize: 1.4, repelForce: 0.8, linkDistance: 50, showTags: false },
+      globalGraph: { fontSize: 1.0, showTags: false },
     }),
   ],
 }

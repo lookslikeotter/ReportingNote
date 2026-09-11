@@ -24,6 +24,7 @@ import { D3Config } from "../Graph"
 // GitHub Actions가 빌드 때 quartz/components/scripts/graph.inline.ts를 이 파일로 덮어쓴다.
 // 바뀐 점:
 //   - 노드 이름표를 처음부터 보이게 한다 (원래는 확대해야 보임) — 사이드바·전체 화면 모두
+//   - 확대·축소해도 이름표 글자 크기는 화면에서 그대로 유지한다 (인물 그래프와 같은 방식)
 //   - 사이드바 그래프는 처음부터 INITIAL_ZOOM 배율로 확대해서 시작한다 (전체 화면은 원래 배율)
 const INITIAL_ZOOM = 1.5
 
@@ -302,7 +303,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     tweens.get("label")?.stop()
     const tweenGroup = new TweenGroup()
 
-    const defaultScale = 1 / scale
+    // 봉누도2: 현재 확대 배율을 나눠서, 화면에서 보이는 글자 크기를 일정하게
+    const defaultScale = 1 / (scale * currentTransform.k)
     const activeScale = defaultScale * 1.1
     for (const n of nodeRenderData) {
       const nodeId = n.simulationData.id
@@ -534,7 +536,11 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         currentTransform = transform
         stage.scale.set(transform.k, transform.k)
         stage.position.set(transform.x, transform.y)
-        // 봉누도2: 이름표를 항상 보이게 하므로 확대에 따른 이름표 투명도 조절은 하지 않는다
+        // 봉누도2: 이름표를 항상 보이게 하므로 확대에 따른 이름표 투명도 조절은 하지 않는다.
+        // 대신 확대·축소해도 이름표 글자 크기는 화면에서 그대로 유지한다.
+        for (const n of nodeRenderData) {
+          n.label.scale.set(1 / (scale * transform.k))
+        }
       })
 
     const canvasSelection = select<HTMLCanvasElement, NodeData>(app.canvas)

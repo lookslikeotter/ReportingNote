@@ -17,7 +17,7 @@ const defaultCfg: D3Config = {
   repelForce: 0.8,
   centerForce: 0.3,
   linkDistance: 50,
-  fontSize: 1.0,
+  fontSize: 1.2,
   opacityScale: 1,
   showTags: false,
   removeTags: [],
