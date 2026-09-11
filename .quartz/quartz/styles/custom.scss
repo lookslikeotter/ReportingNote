@@ -344,48 +344,28 @@ td > code {
   }
 }
 
-// 봉누도2: 취재가치별 표 행 배경 (Obsidian에서는 .obsidian/snippets/bongnudo-rows.css가 같은 규칙)
+// 봉누도2: 취재가치별 표 행 표시 (Obsidian에서는 .obsidian/snippets/bongnudo-rows.css가 같은 규칙)
 
-// 색: 노션 배경색 계열. 옅은 배경 + 행 맨 왼쪽 3px 진한 띠 (라이트·다크 모두 반투명이라 그대로 쓴다)
-// 파랑·빨강·노랑은 색각 이상이 있어도 서로 구분된다
+// 행 맨 왼쪽 끝에 등급 색 띠만 둔다 (배경색 없음). 파랑·빨강·노랑은 색각 이상이 있어도 서로 구분된다
 :root {
-  --bn-news-bg: rgba(35, 131, 226, 0.13);
   --bn-news-bar: #2383e2;
-  --bn-scoop-bg: rgba(235, 87, 87, 0.16);
   --bn-scoop-bar: #e03e3e;
-  --bn-event-bg: rgba(223, 171, 1, 0.2);
   --bn-event-bar: #dfab01;
 }
 
-// 📰 사건 — 옅은 파랑
-tr:has(.bn-lv-news) > td {
-  background-color: var(--bn-news-bg) !important;
-}
+// 📰 사건 — 파랑
 tr:has(.bn-lv-news) > td:first-child {
   box-shadow: inset 3px 0 0 var(--bn-news-bar);
 }
 
-// 🔥 특종 — 옅은 빨강
-tr:has(.bn-lv-scoop) > td {
-  background-color: var(--bn-scoop-bg) !important;
-}
+// 🔥 특종 — 빨강
 tr:has(.bn-lv-scoop) > td:first-child {
   box-shadow: inset 3px 0 0 var(--bn-scoop-bar);
 }
 
-// 📅 이벤트 — 옅은 노랑
-tr:has(.bn-lv-event) > td {
-  background-color: var(--bn-event-bg) !important;
-}
+// 📅 이벤트 — 노랑
 tr:has(.bn-lv-event) > td:first-child {
   box-shadow: inset 3px 0 0 var(--bn-event-bar);
-}
-
-// 칸 안쪽 요소가 배경을 덮지 않게
-tr:has(.bn-lv-news) > td *,
-tr:has(.bn-lv-scoop) > td *,
-tr:has(.bn-lv-event) > td * {
-  background-color: transparent !important;
 }
 
 // 봉누도2: 새로고침 버튼 (RefreshButton.tsx) — 경로 표시(Home > …) 왼쪽에 한 줄로.
@@ -492,26 +472,25 @@ tr:has(.bn-lv-event) > td * {
     gap: 0.3rem;
   }
 
-  // 색 견본: 표 행 배경과 같은 색
+  // 견본: 표 행 왼쪽 띠와 같은 가는 세로 막대 (일상은 띠가 없으므로 테두리만)
   & .bn-swatch {
     display: inline-block;
-    width: 14px;
+    width: 4px;
     height: 14px;
-    border-radius: 4px;
-    border: 1px solid var(--lightgray);
+    border-radius: 2px;
+    box-shadow: inset 0 0 0 1px var(--lightgray);
 
-    // 표 행과 같은 모양: 옅은 배경 + 왼쪽 진한 띠
     &.news {
-      background-color: var(--bn-news-bg);
-      box-shadow: inset 3px 0 0 var(--bn-news-bar);
+      background-color: var(--bn-news-bar);
+      box-shadow: none;
     }
     &.scoop {
-      background-color: var(--bn-scoop-bg);
-      box-shadow: inset 3px 0 0 var(--bn-scoop-bar);
+      background-color: var(--bn-scoop-bar);
+      box-shadow: none;
     }
     &.event {
-      background-color: var(--bn-event-bg);
-      box-shadow: inset 3px 0 0 var(--bn-event-bar);
+      background-color: var(--bn-event-bar);
+      box-shadow: none;
     }
   }
 }
