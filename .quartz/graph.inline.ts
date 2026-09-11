@@ -22,9 +22,9 @@ import { D3Config } from "../Graph"
 
 // 봉누도2 — Quartz v4.5.2 graph.inline.ts 수정본. 원본은 볼트의 .quartz/graph.inline.ts.
 // GitHub Actions가 빌드 때 quartz/components/scripts/graph.inline.ts를 이 파일로 덮어쓴다.
-// 바뀐 점 (오른쪽 사이드바의 로컬 그래프만, 전체 화면 전역 그래프는 원래대로):
-//   - 노드 이름표를 처음부터 보이게 한다 (원래는 확대해야 보임)
-//   - 처음부터 INITIAL_ZOOM 배율로 확대해서 시작한다
+// 바뀐 점:
+//   - 노드 이름표를 처음부터 보이게 한다 (원래는 확대해야 보임) — 사이드바·전체 화면 모두
+//   - 사이드바 그래프는 처음부터 INITIAL_ZOOM 배율로 확대해서 시작한다 (전체 화면은 원래 배율)
 const INITIAL_ZOOM = 1.5
 
 // 봉누도2: 그래프(사이드바·전체 화면 모두)에는 정보 노드(인물·세력·장소)만 남긴다. 목록·일지·사건·서버 정보 등은 뺀다.
@@ -398,8 +398,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       interactive: false,
       eventMode: "none",
       text: n.text,
-      // 봉누도2: 로컬 그래프는 이름표를 처음부터 보이게
-      alpha: isGlobal ? 0 : 1,
+      // 봉누도2: 이름표를 처음부터 보이게 (사이드바·전체 화면 모두)
+      alpha: 1,
       anchor: { x: 0.5, y: 1.2 },
       style: {
         fontSize: fontSize * 15,
@@ -413,7 +413,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     })
     label.scale.set(1 / scale)
 
-    let oldLabelOpacity = isGlobal ? 0 : 1
+    let oldLabelOpacity = 1
     const isTagNode = nodeId.startsWith("tags/")
     const gfx = new Graphics({
       interactive: true,
@@ -531,20 +531,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         currentTransform = transform
         stage.scale.set(transform.k, transform.k)
         stage.position.set(transform.x, transform.y)
-
-        // 봉누도2: 로컬 그래프는 이름표를 항상 보이게 하므로, 확대에 따른 투명도 조절은 전역 그래프만
-        if (isGlobal) {
-          // zoom adjusts opacity of labels too
-          const scale = transform.k * opacityScale
-          let scaleOpacity = Math.max((scale - 1) / 3.75, 0)
-          const activeNodes = nodeRenderData.filter((n) => n.active).flatMap((n) => n.label)
-
-          for (const label of labelsContainer.children) {
-            if (!activeNodes.includes(label)) {
-              label.alpha = scaleOpacity
-            }
-          }
-        }
+        // 봉누도2: 이름표를 항상 보이게 하므로 확대에 따른 이름표 투명도 조절은 하지 않는다
       })
 
     const canvasSelection = select<HTMLCanvasElement, NodeData>(app.canvas)
