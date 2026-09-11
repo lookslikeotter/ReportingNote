@@ -16,15 +16,15 @@ import {
 } from "d3"
 import { Text, Graphics, Application, Container, Circle } from "pixi.js"
 import { Group as TweenGroup, Tween as Tweened } from "@tweenjs/tween.js"
-import { removeAllChildren } from "./util"
-import { FullSlug, SimpleSlug, resolveRelative, simplifySlug } from "../../util/path"
+import { registerEscapeHandler, removeAllChildren } from "./util"
+import { FullSlug, SimpleSlug, getFullSlug, resolveRelative, simplifySlug } from "../../util/path"
 import { D3Config } from "../Graph"
 
-// 봉누도2 — 인물 그래프 스크립트. 원본은 볼트의 .quartz/peopleGraph.inline.ts.
-// Quartz v4.5.2 graph.inline.ts를 바탕으로, PERSON_TAG 태그가 붙은 노트만 노드로 그린다.
-// 선은 인물 노트끼리 서로 링크한 경우에만 생긴다. 이름표는 처음부터 보이고, 앞의 번호(001 등)는 뗀다.
-const PERSON_TAG = "인물"
-// 처음부터 이 배율로 확대해서 시작 (graph.inline.ts 수정본과 같은 값)
+// 봉누도2 — Quartz v4.5.2 graph.inline.ts 수정본. 원본은 볼트의 .quartz/graph.inline.ts.
+// GitHub Actions가 빌드 때 quartz/components/scripts/graph.inline.ts를 이 파일로 덮어쓴다.
+// 바뀐 점 (오른쪽 사이드바의 로컬 그래프만, 전체 화면 전역 그래프는 원래대로):
+//   - 노드 이름표를 처음부터 보이게 한다 (원래는 확대해야 보임)
+//   - 처음부터 INITIAL_ZOOM 배율로 확대해서 시작한다
 const INITIAL_ZOOM = 1.5
 
 type GraphicsInfo = {
@@ -64,6 +64,12 @@ function getVisited(): Set<SimpleSlug> {
   return new Set(JSON.parse(localStorage.getItem(localStorageKey) ?? "[]"))
 }
 
+function addToVisited(slug: SimpleSlug) {
+  const visited = getVisited()
+  visited.add(slug)
+  localStorage.setItem(localStorageKey, JSON.stringify([...visited]))
+}
+
 type TweenNode = {
   update: (time: number) => void
   stop: () => void
@@ -73,15 +79,20 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   const slug = simplifySlug(fullSlug)
   const visited = getVisited()
   removeAllChildren(graph)
+  const isGlobal = graph.classList.contains("global-graph-container")
 
   let {
     drag: enableDrag,
     zoom: enableZoom,
+    depth,
     scale,
     repelForce,
     centerForce,
     linkDistance,
     fontSize,
+    opacityScale,
+    removeTags,
+    showTags,
     focusOnHover,
     enableRadial,
   } = JSON.parse(graph.dataset["cfg"]!) as D3Config
@@ -92,42 +103,70 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       v,
     ]),
   )
-
-  // 인물 태그가 붙은 노트만 고른다
-  const people = new Set<SimpleSlug>()
-  for (const [id, details] of data.entries()) {
-    if ((details.tags ?? []).includes(PERSON_TAG)) {
-      people.add(id)
-    }
-  }
-
-  // 인물 노트끼리의 링크만 선으로
   const links: SimpleLinkData[] = []
-  for (const source of people) {
-    const outgoing = data.get(source)?.links ?? []
+  const tags: SimpleSlug[] = []
+  const validLinks = new Set(data.keys())
+
+  const tweens = new Map<string, TweenNode>()
+  for (const [source, details] of data.entries()) {
+    const outgoing = details.links ?? []
+
     for (const dest of outgoing) {
-      if (dest !== source && people.has(dest)) {
-        links.push({ source, target: dest })
+      if (validLinks.has(dest)) {
+        links.push({ source: source, target: dest })
+      }
+    }
+
+    if (showTags) {
+      const localTags = details.tags
+        .filter((tag) => !removeTags.includes(tag))
+        .map((tag) => simplifySlug(("tags/" + tag) as FullSlug))
+
+      tags.push(...localTags.filter((tag) => !tags.includes(tag)))
+
+      for (const tag of localTags) {
+        links.push({ source: source, target: tag })
       }
     }
   }
 
-  const tweens = new Map<string, TweenNode>()
+  const neighbourhood = new Set<SimpleSlug>()
+  const wl: (SimpleSlug | "__SENTINEL")[] = [slug, "__SENTINEL"]
+  if (depth >= 0) {
+    while (depth >= 0 && wl.length > 0) {
+      // compute neighbours
+      const cur = wl.shift()!
+      if (cur === "__SENTINEL") {
+        depth--
+        wl.push("__SENTINEL")
+      } else {
+        neighbourhood.add(cur)
+        const outgoing = links.filter((l) => l.source === cur)
+        const incoming = links.filter((l) => l.target === cur)
+        wl.push(...outgoing.map((l) => l.target), ...incoming.map((l) => l.source))
+      }
+    }
+  } else {
+    validLinks.forEach((id) => neighbourhood.add(id))
+    if (showTags) tags.forEach((tag) => neighbourhood.add(tag))
+  }
 
-  const nodes = [...people].map((url) => {
-    const title = data.get(url)?.title ?? url
+  const nodes = [...neighbourhood].map((url) => {
+    const text = url.startsWith("tags/") ? "#" + url.substring(5) : (data.get(url)?.title ?? url)
     return {
       id: url,
-      text: title.replace(/^\d{3}\s+/, ""),
+      text,
       tags: data.get(url)?.tags ?? [],
     }
   })
   const graphData: { nodes: NodeData[]; links: LinkData[] } = {
     nodes,
-    links: links.map((l) => ({
-      source: nodes.find((n) => n.id === l.source)!,
-      target: nodes.find((n) => n.id === l.target)!,
-    })),
+    links: links
+      .filter((l) => neighbourhood.has(l.source) && neighbourhood.has(l.target))
+      .map((l) => ({
+        source: nodes.find((n) => n.id === l.source)!,
+        target: nodes.find((n) => n.id === l.target)!,
+      })),
   }
 
   const width = graph.offsetWidth
@@ -167,7 +206,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     const isCurrent = d.id === slug
     if (isCurrent) {
       return computedStyleMap["--secondary"]
-    } else if (visited.has(d.id)) {
+    } else if (visited.has(d.id) || d.id.startsWith("tags/")) {
       return computedStyleMap["--tertiary"]
     } else {
       return computedStyleMap["--gray"]
@@ -178,7 +217,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     const numLinks = graphData.links.filter(
       (l) => l.source.id === d.id || l.target.id === d.id,
     ).length
-    return 4 + Math.sqrt(numLinks)
+    return 2 + Math.sqrt(numLinks)
   }
 
   let hoveredNodeId: string | null = null
@@ -225,6 +264,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     for (const l of linkRenderData) {
       let alpha = 1
 
+      // if we are hovering over a node, we want to highlight the immediate neighbours
+      // with full alpha and the rest with default alpha
       if (hoveredNodeId) {
         alpha = l.active ? 1 : 0.2
       }
@@ -290,6 +331,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     for (const n of nodeRenderData) {
       let alpha = 1
 
+      // if we are hovering over a node, we want to highlight the immediate neighbours
       if (hoveredNodeId !== null && focusOnHover) {
         alpha = n.active ? 1 : 0.2
       }
@@ -340,12 +382,12 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   for (const n of graphData.nodes) {
     const nodeId = n.id
 
-    // 이름표는 처음부터 보이게 (기본 그래프는 확대해야 보임)
     const label = new Text({
       interactive: false,
       eventMode: "none",
       text: n.text,
-      alpha: 1,
+      // 봉누도2: 로컬 그래프는 이름표를 처음부터 보이게
+      alpha: isGlobal ? 0 : 1,
       anchor: { x: 0.5, y: 1.2 },
       style: {
         fontSize: fontSize * 15,
@@ -356,7 +398,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     })
     label.scale.set(1 / scale)
 
-    let oldLabelOpacity = 1
+    let oldLabelOpacity = isGlobal ? 0 : 1
+    const isTagNode = nodeId.startsWith("tags/")
     const gfx = new Graphics({
       interactive: true,
       label: nodeId,
@@ -365,7 +408,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       cursor: "pointer",
     })
       .circle(0, 0, nodeRadius(n))
-      .fill({ color: color(n) })
+      .fill({ color: isTagNode ? computedStyleMap["--light"] : color(n) })
       .on("pointerover", (e) => {
         updateHoverInfo(e.target.label)
         oldLabelOpacity = label.alpha
@@ -380,6 +423,10 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
           renderPixiFromD3()
         }
       })
+
+    if (isTagNode) {
+      gfx.stroke({ width: 2, color: computedStyleMap["--tertiary"] })
+    }
 
     nodesContainer.addChild(gfx)
     labelsContainer.addChild(label)
@@ -469,13 +516,27 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         currentTransform = transform
         stage.scale.set(transform.k, transform.k)
         stage.position.set(transform.x, transform.y)
+
+        // 봉누도2: 로컬 그래프는 이름표를 항상 보이게 하므로, 확대에 따른 투명도 조절은 전역 그래프만
+        if (isGlobal) {
+          // zoom adjusts opacity of labels too
+          const scale = transform.k * opacityScale
+          let scaleOpacity = Math.max((scale - 1) / 3.75, 0)
+          const activeNodes = nodeRenderData.filter((n) => n.active).flatMap((n) => n.label)
+
+          for (const label of labelsContainer.children) {
+            if (!activeNodes.includes(label)) {
+              label.alpha = scaleOpacity
+            }
+          }
+        }
       })
 
     const canvasSelection = select<HTMLCanvasElement, NodeData>(app.canvas)
     canvasSelection.call(zoomBehavior)
 
-    // 가운데를 기준으로 확대한 채 시작
-    if (INITIAL_ZOOM !== 1) {
+    // 봉누도2: 로컬 그래프는 가운데를 기준으로 확대한 채 시작
+    if (!isGlobal && INITIAL_ZOOM !== 1) {
       const k = INITIAL_ZOOM
       canvasSelection.call(
         zoomBehavior.transform,
@@ -517,34 +578,94 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   }
 }
 
-let peopleGraphCleanups: (() => void)[] = []
+let localGraphCleanups: (() => void)[] = []
+let globalGraphCleanups: (() => void)[] = []
 
-function cleanupPeopleGraphs() {
-  for (const cleanup of peopleGraphCleanups) {
+function cleanupLocalGraphs() {
+  for (const cleanup of localGraphCleanups) {
     cleanup()
   }
-  peopleGraphCleanups = []
+  localGraphCleanups = []
+}
+
+function cleanupGlobalGraphs() {
+  for (const cleanup of globalGraphCleanups) {
+    cleanup()
+  }
+  globalGraphCleanups = []
 }
 
 document.addEventListener("nav", async (e: CustomEventMap["nav"]) => {
   const slug = e.detail.url
+  addToVisited(simplifySlug(slug))
 
-  async function renderPeopleGraphs() {
-    cleanupPeopleGraphs()
-    const containers = document.getElementsByClassName("people-graph-container")
-    for (const container of containers) {
-      peopleGraphCleanups.push(await renderGraph(container as HTMLElement, slug))
+  async function renderLocalGraph() {
+    cleanupLocalGraphs()
+    const localGraphContainers = document.getElementsByClassName("graph-container")
+    for (const container of localGraphContainers) {
+      localGraphCleanups.push(await renderGraph(container as HTMLElement, slug))
     }
   }
 
-  await renderPeopleGraphs()
+  await renderLocalGraph()
   const handleThemeChange = () => {
-    void renderPeopleGraphs()
+    void renderLocalGraph()
   }
 
   document.addEventListener("themechange", handleThemeChange)
   window.addCleanup(() => {
     document.removeEventListener("themechange", handleThemeChange)
-    cleanupPeopleGraphs()
+  })
+
+  const containers = [...document.getElementsByClassName("global-graph-outer")] as HTMLElement[]
+  async function renderGlobalGraph() {
+    const slug = getFullSlug(window)
+    for (const container of containers) {
+      container.classList.add("active")
+      const sidebar = container.closest(".sidebar") as HTMLElement
+      if (sidebar) {
+        sidebar.style.zIndex = "1"
+      }
+
+      const graphContainer = container.querySelector(".global-graph-container") as HTMLElement
+      registerEscapeHandler(container, hideGlobalGraph)
+      if (graphContainer) {
+        globalGraphCleanups.push(await renderGraph(graphContainer, slug))
+      }
+    }
+  }
+
+  function hideGlobalGraph() {
+    cleanupGlobalGraphs()
+    for (const container of containers) {
+      container.classList.remove("active")
+      const sidebar = container.closest(".sidebar") as HTMLElement
+      if (sidebar) {
+        sidebar.style.zIndex = ""
+      }
+    }
+  }
+
+  async function shortcutHandler(e: HTMLElementEventMap["keydown"]) {
+    if (e.key === "g" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+      e.preventDefault()
+      const anyGlobalGraphOpen = containers.some((container) =>
+        container.classList.contains("active"),
+      )
+      anyGlobalGraphOpen ? hideGlobalGraph() : renderGlobalGraph()
+    }
+  }
+
+  const containerIcons = document.getElementsByClassName("global-graph-icon")
+  Array.from(containerIcons).forEach((icon) => {
+    icon.addEventListener("click", renderGlobalGraph)
+    window.addCleanup(() => icon.removeEventListener("click", renderGlobalGraph))
+  })
+
+  document.addEventListener("keydown", shortcutHandler)
+  window.addCleanup(() => {
+    document.removeEventListener("keydown", shortcutHandler)
+    cleanupLocalGraphs()
+    cleanupGlobalGraphs()
   })
 })

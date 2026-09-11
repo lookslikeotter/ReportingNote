@@ -55,6 +55,7 @@ jobs:
           cp notes/.quartz/ExplorerDefaults.tsx quartz/quartz/components/ExplorerDefaults.tsx
           cp notes/.quartz/PeopleGraph.tsx quartz/quartz/components/PeopleGraph.tsx
           cp notes/.quartz/peopleGraph.inline.ts quartz/quartz/components/scripts/peopleGraph.inline.ts
+          cp notes/.quartz/graph.inline.ts quartz/quartz/components/scripts/graph.inline.ts
 
       - name: Build
         working-directory: quartz

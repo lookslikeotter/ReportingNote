@@ -30,7 +30,6 @@ export default ((opts?: Partial<D3Config>) => {
     const cfg = { ...defaultCfg, ...opts }
     return (
       <div class={classNames(displayClass, "graph", "people-graph")}>
-        <h3>인물</h3>
         <div class="graph-outer">
           <div class="people-graph-container" data-cfg={JSON.stringify(cfg)}></div>
         </div>

@@ -23,6 +23,38 @@
   }
 }
 
+// 봉누도2: 오른쪽 사이드바 그래프 2개 — 제목 숨김, 크게
+.graph > h3 {
+  display: none;
+}
+
+// 그림 영역이 테두리를 꽉 채워야 캔버스 크기가 따라 커진다 (스크립트가 영역 크기로 캔버스를 만든다)
+.graph-container,
+.people-graph-container {
+  height: 100%;
+}
+
+.page > #quartz-body .sidebar.right .graph > .graph-outer {
+  height: 320px;
+  margin: 0;
+}
+
+@media all and (min-width: 1200px) {
+  .page > #quartz-body {
+    grid-template-columns: 320px auto 420px;
+  }
+
+  .page > #quartz-body .sidebar.right {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  // 두 그래프가 화면 높이를 반씩 나눠 쓴다
+  .page > #quartz-body .sidebar.right .graph > .graph-outer {
+    height: calc((100vh - 5rem) / 2);
+  }
+}
+
 // 봉누도2: 취재가치별 표 행 배경 (볼트의 publish.css, .obsidian/snippets/bongnudo-rows.css와 같은 규칙)
 
 // 📰 사건 — 아주 옅은 초록
