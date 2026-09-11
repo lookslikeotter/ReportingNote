@@ -34,9 +34,9 @@ const INFO_EXCLUDE = ["02-인물/인물-목록", "03-세력/세력-목록"]
 
 // 봉누도2: 분류 태그별 노드 색 (앞에 있는 태그가 우선). 태그가 없으면 기본 글자색(라이트 모드 검정)
 const CATEGORY_COLORS: [string, string][] = [
-  ["갱", "#d64545"],
-  ["기관", "#2f6fd6"],
-  ["시민", "#2e9e5b"],
+  ["갱", "#e03131"],
+  ["기관", "#0075de"],
+  ["시민", "#1aae39"],
 ]
 function isInfoNode(id: string) {
   return INFO_PREFIXES.some((p) => id.startsWith(p)) && !INFO_EXCLUDE.includes(id)
