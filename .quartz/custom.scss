@@ -188,6 +188,11 @@ td > code {
     }
   }
 
+  // 하위 폴더(사건 목록·기관·사업체 등)는 조금 가볍게
+  & .folder-outer .folder-container div > button span {
+    font-weight: 500;
+  }
+
   & .folder-icon {
     color: var(--gray);
   }
@@ -198,6 +203,12 @@ td > code {
     padding-left: 0.6rem;
     border-left: 1px solid var(--lightgray);
   }
+}
+
+// 최상위 폴더(일지·인물·세력·장소·취재·기사): 크게, 굵게
+.explorer .explorer-ul > li > .folder-container div > button span {
+  font-size: 16px;
+  font-weight: 700;
 }
 
 // 봉누도2: 오른쪽 사이드바 그래프 2개 — 제목 숨김, 크게
