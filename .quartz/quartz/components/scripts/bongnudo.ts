@@ -77,18 +77,33 @@ const EVENT_TAGS = ["사건", "특종"]
 const isEventNote = (details: ContentDetails) =>
   (details.tags ?? []).some((t) => EVENT_TAGS.includes(t))
 
-// 두 노드(인물·세력 무엇이든)가 본문에 함께 링크된 📰·🔥 사건 노트들
-export function sharedEvents(
+// 세력이 주체인 사건: 사건 노트 태그 주체/세력이름. 조직 단위로 움직인 사건에만 단다.
+// 조직원 개인이 저지른 일은 소속 설명으로 세력이 본문에 링크돼 있어도 세력의 사건이 아니다.
+const SUBJECT_TAG = /^주체\/(.+)$/
+const isFactionNode = (id: string) => id.startsWith("03-세력/")
+
+// 소속·세력 관계 선(한쪽 이상이 세력)을 눌렀을 때 보여 줄 📰·🔥 사건:
+// 세력 쪽은 그 사건의 주체여야 하고, 인물 쪽은 사건 본문에 링크돼 있어야 한다.
+export function factionEvents(
   data: ContentData,
   resolveLink: (dest: SimpleSlug) => SimpleSlug,
+  factions: Map<string, SimpleSlug>,
   a: SimpleSlug,
   b: SimpleSlug,
 ): SimpleSlug[] {
   const events: SimpleSlug[] = []
   for (const [eventId, details] of data.entries()) {
     if (!isEventNote(details)) continue
+    const subjects = new Set<SimpleSlug>()
+    for (const tag of details.tags ?? []) {
+      const m = tag.match(SUBJECT_TAG)
+      const faction = m ? factions.get(normalizeName(m[1])) : undefined
+      if (faction) subjects.add(faction)
+    }
+    if (subjects.size === 0) continue
     const linked = new Set((details.links ?? []).map(resolveLink))
-    if (linked.has(a) && linked.has(b)) events.push(eventId)
+    const involved = (id: SimpleSlug) => (isFactionNode(id) ? subjects.has(id) : linked.has(id))
+    if (involved(a) && involved(b)) events.push(eventId)
   }
   return events
 }
