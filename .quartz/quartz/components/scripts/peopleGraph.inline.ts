@@ -24,7 +24,7 @@ import {
   HOVER_EXTRA_WIDTH,
   categoryColor,
   eventLinkWidth,
-  eventPairs,
+  tableEventPairs,
   factionIndex,
   linkResolver,
   loadContentIndex,
@@ -38,7 +38,8 @@ import {
 // 원본은 볼트의 .quartz/quartz/components/scripts/peopleGraph.inline.ts. 아래 그래프와 함께 쓰는 규칙은 bongnudo.ts.
 //   - 노드는 PERSON_TAG 태그가 붙은 인물 노트만. 색은 분류 태그, 지금 페이지는 테두리
 //   - 이름표는 처음부터 보이고, 확대·축소해도 화면에서 글자 크기가 그대로다
-//   - 선은 사건 인연 선만 (📰·🔥 사건에 함께 엮인 두 인물, 사건이 많을수록 굵고 가깝게).
+//   - 선은 사건 인연 선만 (일지 표 📰·🔥 행 관련 인물 칸에 함께 적힌 두 인물, 사건이 많을수록 굵고 가깝게).
+//     나희정은 인물 태그가 없어 노드도 선도 없다.
 //     같은 소속끼리는 선 없이 보이지 않는 힘으로 가까이 모은다
 //   - 처음에는 모든 인물이 한 화면에 들어오게 맞추고, 인물 페이지로 가면 그 인물 쪽으로 옮기며 확대한다
 //   - 페이지를 옮겨도 다시 그리지 않는다 (크기·테마가 바뀔 때만)
@@ -135,7 +136,9 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   const nodeById = new Map(nodes.map((n) => [n.id, n]))
   const graphData: { nodes: NodeData[]; links: LinkData[] } = {
     nodes,
-    links: [...eventPairs(data, resolveLink, (id) => people.has(id)).values()].map((p) => ({
+    links: [
+      ...(await tableEventPairs(fullSlug, data, resolveLink, (id) => people.has(id))).values(),
+    ].map((p) => ({
       ...p,
       source: nodeById.get(p.source)!,
       target: nodeById.get(p.target)!,

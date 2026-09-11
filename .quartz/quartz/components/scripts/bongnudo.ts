@@ -77,9 +77,6 @@ export function linkResolver(data: ContentData): (dest: SimpleSlug) => SimpleSlu
 
 // ── 사건 인연 선 ──
 
-// 📰 사건·🔥 특종 태그가 붙은 사건 노트만 선을 만든다 (☕ 일상 사건은 태그가 없고, 📅 이벤트는 선을 만들지 않는다)
-const EVENT_TAGS = ["사건", "특종"]
-
 export type EventPair = {
   source: SimpleSlug
   target: SimpleSlug
@@ -89,16 +86,22 @@ export type EventPair = {
   events: SimpleSlug[]
 }
 
-// 사건 노트 본문에 함께 링크된 당사자(isParticipant) 두 명마다 한 쌍을 만든다. 키는 pairKey.
-export function eventPairs(
+// 일지 표(N일차) 📰 사건·🔥 특종 행의 '관련 인물' 칸에 함께 적힌 당사자(isParticipant) 두 명마다 한 쌍을 만든다. 키는 pairKey.
+// 선을 눌렀을 때 뜨는 표와 같은 칸을 기준으로 삼는다. ☕ 일상·📅 이벤트 행은 선을 만들지 않는다.
+export async function tableEventPairs(
+  currentSlug: FullSlug,
   data: ContentData,
   resolveLink: (dest: SimpleSlug) => SimpleSlug,
   isParticipant: (id: SimpleSlug) => boolean,
-): Map<string, EventPair> {
+): Promise<Map<string, EventPair>> {
+  const { rows } = await readDayTables(currentSlug, data, resolveLink)
   const pairs = new Map<string, EventPair>()
-  for (const [eventId, details] of data.entries()) {
-    if (!(details.tags ?? []).some((t) => EVENT_TAGS.includes(t))) continue
-    const involved = [...new Set((details.links ?? []).map(resolveLink).filter(isParticipant))]
+  const seen = new Set<SimpleSlug>()
+  for (const r of rows) {
+    if ((r.kind !== "news" && r.kind !== "scoop") || seen.has(r.id)) continue
+    seen.add(r.id)
+    const eventId = r.id
+    const involved = [...r.related].filter(isParticipant)
     for (let i = 0; i < involved.length; i++) {
       for (let j = i + 1; j < involved.length; j++) {
         const key = pairKey(involved[i], involved[j])

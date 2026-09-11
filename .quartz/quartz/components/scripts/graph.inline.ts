@@ -24,7 +24,7 @@ import {
   HOVER_EXTRA_WIDTH,
   categoryColor,
   eventLinkWidth,
-  eventPairs,
+  tableEventPairs,
   factionIndex,
   isInfoNode,
   isPersonNode,
@@ -42,7 +42,7 @@ import {
 // 인물 그래프와 함께 쓰는 규칙은 bongnudo.ts. 원래 Quartz 그래프와 다른 점:
 //   - 노드는 인물·세력·장소만. 색은 분류 태그, 지금 페이지는 테두리
 //   - 이름표는 처음부터 보이고, 확대·축소해도 화면에서 글자 크기가 그대로다
-//   - 선은 세 가지뿐: 소속 점선(인물 ↔ 소속 세력), 세력 관계 선(관계 태그), 사건 인연 선(인물끼리).
+//   - 선은 세 가지뿐: 소속 점선(인물 ↔ 소속 세력), 세력 관계 선(관계 태그), 사건 인연 선(일지 표 📰·🔥 행 관련 인물 칸에 함께 적힌 인물끼리).
 //     본문 링크는 어떤 노드를 보여 줄지(이웃 계산)에만 쓰고 선으로 그리지 않는다
 //   - 선에 마우스를 올리면 하이라이트, 누르면 창 (사건 표 · 소속 · 세력 관계)
 //   - 사이드바 그래프는 INITIAL_ZOOM 배율로 확대해서 시작한다 (전체 그래프는 원래 배율)
@@ -173,6 +173,11 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     }
   }
 
+  // 사건 인연 선: 일지 표 📰·🔥 행의 관련 인물 칸에 함께 적힌 인물끼리.
+  // 이웃 계산에도 넣어서, 사건으로 엮인 인물이 그 인물 페이지 그래프에 보이게 한다
+  const eventLinks = await tableEventPairs(fullSlug, data, resolveLink, isPersonNode)
+  for (const l of eventLinks.values()) links.push({ source: l.source, target: l.target })
+
   const neighbourhood = new Set<SimpleSlug>()
   if (depth >= 0) {
     const wl: (SimpleSlug | "__SENTINEL")[] = [slug, "__SENTINEL"]
@@ -205,11 +210,10 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   }))
   const nodeById = new Map(nodes.map((n) => [n.id, n]))
 
-  // 사건 인연 선은 인물끼리만. 사건 노트에 소속 설명으로 링크된 세력·장소는 사건 당사자로 보지 않는다
   const drawnLinks: SimpleLinkData[] = [
     ...links.filter((l) => l.member),
     ...relationPairs.values(),
-    ...eventPairs(data, resolveLink, isPersonNode).values(),
+    ...eventLinks.values(),
   ]
   const graphData: { nodes: NodeData[]; links: LinkData[] } = {
     nodes,
