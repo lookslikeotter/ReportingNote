@@ -549,8 +549,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       panFrame = requestAnimationFrame(step)
     }
 
-    // 처음 그릴 때도 인물 페이지면 그 인물 쪽으로 (배율은 그대로)
-    panToNode(slug)
+    // 처음 그릴 때(새로고침·첫 방문)도 인물 페이지면 전체 화면에서 그 인물 쪽으로 옮기며 확대한다
+    panToNode(slug, true)
   }
 
   // 선 위에 마우스를 올리면 하이라이트, 누르면 사건 표 창
