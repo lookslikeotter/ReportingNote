@@ -1,5 +1,28 @@
 @use "./base.scss";
 
+// 봉누도2: 페이지 여백 줄이기 (기본: 가운데 정렬 + 위 6rem, 옆 2rem)
+.page {
+  max-width: none;
+  margin: 0;
+
+  & > #quartz-body {
+    & .sidebar {
+      padding-top: 1rem;
+    }
+
+    & .page-header {
+      margin-top: 1rem;
+    }
+  }
+}
+
+@media all and (min-width: 800px) {
+  .page > #quartz-body .sidebar.left {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
 // 봉누도2: 취재가치별 표 행 배경 (볼트의 publish.css, .obsidian/snippets/bongnudo-rows.css와 같은 규칙)
 
 // 📰 사건 — 아주 옅은 초록
