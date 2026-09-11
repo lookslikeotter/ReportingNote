@@ -34,7 +34,7 @@ export const sharedPageComponents: SharedLayout = {
 
 // components for pages that display a single page (e.g. a single note)
 export const defaultContentPageLayout: PageLayout = {
-  // 본문 오른쪽 위 새로고침 버튼 (custom.scss에서 위치를 잡는다)
+  // 새로고침 버튼은 경로 표시(Home > …) 왼쪽 (custom.scss에서 한 줄로 배치)
   beforeBody: [
     RefreshButton(),
     Component.ConditionalRender({

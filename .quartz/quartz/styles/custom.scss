@@ -361,21 +361,35 @@ tr:has(.bn-lv-event) > td * {
   background-color: transparent !important;
 }
 
-// 봉누도2: 본문 오른쪽 위 새로고침 버튼 (RefreshButton.tsx)
-.page > #quartz-body .page-header {
-  position: relative;
+// 봉누도2: 새로고침 버튼 (RefreshButton.tsx) — 경로 표시(Home > …) 왼쪽에 한 줄로.
+// 본문 위 영역을 줄바꿈 flex로 만들고, 버튼·경로 표시만 한 줄에 두고 나머지(제목·태그)는 각자 한 줄
+.page-header > .popover-hint:has(> .bn-refresh) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 0.4rem;
+
+  & > * {
+    flex-basis: 100%;
+  }
+
+  & > .bn-refresh {
+    flex: 0 0 auto;
+  }
+
+  & > .breadcrumb-container {
+    flex: 1 1 0;
+    min-width: 0;
+    margin-top: 0;
+  }
 }
 
 .bn-refresh {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border: none;
   border-radius: 6px;
@@ -386,6 +400,11 @@ tr:has(.bn-lv-event) > td * {
   transition:
     opacity 0.2s ease,
     background-color 0.2s ease;
+
+  & svg {
+    width: 36px;
+    height: 36px;
+  }
 
   &:hover {
     opacity: 1;
@@ -401,13 +420,6 @@ tr:has(.bn-lv-event) > td * {
 @keyframes bn-spin {
   to {
     transform: rotate(360deg);
-  }
-}
-
-// 본문 옆 여백(2rem) 안쪽에 맞춘다
-@media all and (min-width: 800px) {
-  .bn-refresh {
-    right: 2rem;
   }
 }
 
