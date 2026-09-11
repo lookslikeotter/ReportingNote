@@ -76,10 +76,44 @@ function fetchDayPage(url: string): Promise<Document | null> {
     p = fetch(url)
       .then((r) => (r.ok ? r.text() : Promise.reject()))
       .then((html) => new DOMParser().parseFromString(html, "text/html"))
-      .catch(() => null)
+      .catch(() => {
+        // 실패는 기억하지 않는다 (다음에 다시 시도)
+        dayPageCache.delete(url)
+        return null
+      })
     dayPageCache.set(url, p)
   }
   return p
+}
+
+function defaultHead(): HTMLElement {
+  const thead = document.createElement("thead")
+  const tr = document.createElement("tr")
+  for (const h of ["", "시간", "사건", "요약", "관련 인물"]) {
+    const th = document.createElement("th")
+    th.textContent = h
+    tr.append(th)
+  }
+  thead.append(tr)
+  return thead
+}
+
+// 일지 표에서 행을 못 찾았을 때, 사건 노트에서 아는 정보로 같은 칸 구성의 행을 만든다
+function fallbackRow(details: ContentDetails | undefined, href: string): HTMLElement {
+  const tr = document.createElement("tr")
+  const cells = Array.from({ length: 5 }, () => document.createElement("td"))
+  const scoop = (details?.tags ?? []).includes("특종")
+  const icon = document.createElement("span")
+  icon.className = scoop ? "bn-lv-scoop" : "bn-lv-news"
+  icon.textContent = scoop ? "🔥" : "📰"
+  cells[0].append(icon)
+  const a = document.createElement("a")
+  a.href = href
+  a.textContent = (details?.title ?? "").replace(/^\d+일차-\d+\s+/, "")
+  cells[2].append(a)
+  cells[3].textContent = eventSummary(details)
+  tr.append(...cells)
+  return tr
 }
 
 async function buildEventTable(
@@ -91,30 +125,36 @@ async function buildEventTable(
   let thead: Element | null = null
   const tbody = document.createElement("tbody")
   for (const id of events) {
-    const day = (data.get(id)?.title ?? "").match(/^(\d+)일차-/)?.[1]
-    if (!day) return null
-    const dayUrl = new URL(
-      resolveRelative(currentSlug, `01-일지/${day}일차` as SimpleSlug),
-      here,
-    ).toString()
-    const table = (await fetchDayPage(dayUrl))?.querySelector("article table")
-    if (!table) return null
-    const eventPath = new URL(resolveRelative(currentSlug, id), here).pathname
-    const row = [...table.querySelectorAll("tbody tr")].find((tr) =>
-      [...tr.querySelectorAll("a[href]")].some(
-        (a) => new URL(a.getAttribute("href")!, dayUrl).pathname === eventPath,
-      ),
-    )
-    if (!row) return null
-    thead ??= table.querySelector("thead")
-    const clone = document.importNode(row, true)
-    clone.querySelectorAll("a[href]").forEach((a) => {
-      a.setAttribute("href", new URL(a.getAttribute("href")!, dayUrl).toString())
-    })
-    tbody.append(clone)
+    const details = data.get(id)
+    const eventUrl = new URL(resolveRelative(currentSlug, id), here)
+    const day = (details?.title ?? "").match(/^(\d+)일차-/)?.[1]
+    let row: Element | undefined
+    let dayUrl = ""
+    if (day) {
+      dayUrl = new URL(
+        resolveRelative(currentSlug, `01-일지/${day}일차` as SimpleSlug),
+        here,
+      ).toString()
+      const table = (await fetchDayPage(dayUrl))?.querySelector("article table")
+      thead ??= table?.querySelector("thead") ?? null
+      row = [...(table?.querySelectorAll("tbody tr") ?? [])].find((tr) =>
+        [...tr.querySelectorAll("a[href]")].some(
+          (a) => new URL(a.getAttribute("href")!, dayUrl).pathname === eventUrl.pathname,
+        ),
+      )
+    }
+    if (row) {
+      const clone = document.importNode(row, true)
+      clone.querySelectorAll("a[href]").forEach((a) => {
+        a.setAttribute("href", new URL(a.getAttribute("href")!, dayUrl).toString())
+      })
+      tbody.append(clone)
+    } else {
+      tbody.append(fallbackRow(details, eventUrl.toString()))
+    }
   }
   const out = document.createElement("table")
-  if (thead) out.append(document.importNode(thead, true))
+  out.append(thead ? document.importNode(thead, true) : defaultHead())
   out.append(tbody)
   const wrap = document.createElement("div")
   wrap.className = "bn-edge-table"
