@@ -164,7 +164,10 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   }
 
   const nodes = [...neighbourhood].map((url) => {
-    const text = url.startsWith("tags/") ? "#" + url.substring(5) : (data.get(url)?.title ?? url)
+    // 봉누도2: 인물 이름 앞의 번호(001 등)는 떼고 이름만 보이게
+    const text = url.startsWith("tags/")
+      ? "#" + url.substring(5)
+      : (data.get(url)?.title ?? url).replace(/^\d{3}\s+/, "")
     return {
       id: url,
       text,
