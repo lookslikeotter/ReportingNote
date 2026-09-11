@@ -24,6 +24,12 @@ import { D3Config } from "../Graph"
 // Quartz v4.5.2 graph.inline.ts를 바탕으로, PERSON_TAG 태그가 붙은 노트만 노드로 그린다.
 // 선은 인물 노트끼리 서로 링크한 경우에만 생긴다. 이름표는 처음부터 보이고, 앞의 번호(001 등)는 뗀다.
 const PERSON_TAG = "인물"
+// 분류 태그별 노드 색 (graph.inline.ts 수정본과 같은 값, 앞에 있는 태그가 우선)
+const CATEGORY_COLORS: [string, string][] = [
+  ["갱", "#d64545"],
+  ["기관", "#2f6fd6"],
+  ["시민", "#2e9e5b"],
+]
 // 처음에는 모든 인물이 한 화면에 들어오도록 배율을 자동으로 맞추고,
 // 확대·축소해도 이름표 글자 크기는 화면에서 그대로 유지한다.
 
@@ -166,16 +172,13 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     {} as Record<(typeof cssVars)[number], string>,
   )
 
-  // calculate color
+  // 노드 색은 분류 태그 기준 (갱 빨강 · 기관 파랑 · 시민 초록 · 그 외 기본 글자색)
+  // 지금 보고 있는 페이지는 색 대신 테두리로 표시한다
   const color = (d: NodeData) => {
-    const isCurrent = d.id === slug
-    if (isCurrent) {
-      return computedStyleMap["--secondary"]
-    } else if (visited.has(d.id)) {
-      return computedStyleMap["--tertiary"]
-    } else {
-      return computedStyleMap["--gray"]
+    for (const [tag, c] of CATEGORY_COLORS) {
+      if (d.tags.includes(tag)) return c
     }
+    return computedStyleMap["--dark"]
   }
 
   function nodeRadius(d: NodeData) {
@@ -388,6 +391,11 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
           renderPixiFromD3()
         }
       })
+
+    // 지금 보고 있는 페이지는 테두리로 표시
+    if (nodeId === slug) {
+      gfx.stroke({ width: 2, color: computedStyleMap["--secondary"] })
+    }
 
     nodesContainer.addChild(gfx)
     labelsContainer.addChild(label)
