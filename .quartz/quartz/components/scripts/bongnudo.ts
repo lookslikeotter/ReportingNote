@@ -74,6 +74,24 @@ export function linkResolver(data: ContentData): (dest: SimpleSlug) => SimpleSlu
 
 // 📰 사건·🔥 특종 태그가 붙은 사건 노트만 선을 만든다 (☕ 일상 사건은 태그가 없다)
 const EVENT_TAGS = ["사건", "특종"]
+const isEventNote = (details: ContentDetails) =>
+  (details.tags ?? []).some((t) => EVENT_TAGS.includes(t))
+
+// 두 노드(인물·세력 무엇이든)가 본문에 함께 링크된 📰·🔥 사건 노트들
+export function sharedEvents(
+  data: ContentData,
+  resolveLink: (dest: SimpleSlug) => SimpleSlug,
+  a: SimpleSlug,
+  b: SimpleSlug,
+): SimpleSlug[] {
+  const events: SimpleSlug[] = []
+  for (const [eventId, details] of data.entries()) {
+    if (!isEventNote(details)) continue
+    const linked = new Set((details.links ?? []).map(resolveLink))
+    if (linked.has(a) && linked.has(b)) events.push(eventId)
+  }
+  return events
+}
 
 export type EventPair = {
   source: SimpleSlug
@@ -92,7 +110,7 @@ export function eventPairs(
 ): Map<string, EventPair> {
   const pairs = new Map<string, EventPair>()
   for (const [eventId, details] of data.entries()) {
-    if (!(details.tags ?? []).some((t) => EVENT_TAGS.includes(t))) continue
+    if (!isEventNote(details)) continue
     const involved = [...new Set((details.links ?? []).map(resolveLink).filter(isParticipant))]
     for (let i = 0; i < involved.length; i++) {
       for (let j = i + 1; j < involved.length; j++) {
@@ -156,15 +174,9 @@ export function nearestLink<L extends { simulationData: { source: Point; target:
 
 // ── 선을 누르면 뜨는 창 ──
 
-export type EdgePopupItem = { icon: string; label: string; desc?: string; href?: string }
-
-// 창을 띄운다. content는 간단한 목록(항목 배열)이나 이미 만든 요소(사건 표).
-// Esc나 창 바깥을 누르면 닫힌다. 창 안의 링크를 누르면 창을 닫고, 이동은 사이트의 링크 처리에 맡긴다.
-export function showEdgePopup(
-  title: string,
-  subtitle: string,
-  content: EdgePopupItem[] | HTMLElement,
-) {
+// 창을 띄운다. Esc나 창 바깥을 누르면 닫힌다.
+// 창 안의 링크를 누르면 창을 닫고, 이동은 사이트의 링크 처리에 맡긴다.
+function showEdgePopup(title: string, subtitle: string, content: HTMLElement) {
   document.querySelector(".bn-edge-popup")?.remove()
   const outer = document.createElement("div")
   outer.className = "bn-edge-popup"
@@ -176,30 +188,7 @@ export function showEdgePopup(
   const sub = document.createElement("div")
   sub.className = "bn-edge-subtitle"
   sub.textContent = subtitle
-  card.append(head, sub)
-
-  if (Array.isArray(content)) {
-    const list = document.createElement("ul")
-    list.className = "bn-edge-list"
-    for (const it of content) {
-      const li = document.createElement("li")
-      const label = document.createElement(it.href ? "a" : "span")
-      label.className = "bn-edge-item"
-      label.textContent = `${it.icon} ${it.label}`
-      if (it.href) (label as HTMLAnchorElement).href = it.href
-      li.append(label)
-      if (it.desc) {
-        const desc = document.createElement("div")
-        desc.className = "bn-edge-desc"
-        desc.textContent = it.desc
-        li.append(desc)
-      }
-      list.append(li)
-    }
-    card.append(list)
-  } else {
-    card.append(content)
-  }
+  card.append(head, sub, content)
   outer.append(card)
   document.body.append(outer)
 
@@ -326,16 +315,25 @@ async function buildEventTable(
   return wrap
 }
 
-// 사건 인연 선을 눌렀을 때: 두 인물이 함께 엮인 사건 표 창 (일차·순번 순)
+// 선을 눌렀을 때: 양 끝이 함께 엮인 사건 표 창 (일차·순번 순). kind는 선 종류 (예: "소속", "세력 관계 · 경쟁")
 export async function showEventPopup(
   title: string,
   currentSlug: FullSlug,
   events: SimpleSlug[],
   data: ContentData,
+  kind?: string,
 ) {
   const sorted = [...events].sort(
     (a, b) => eventOrder(data.get(a)?.title ?? "") - eventOrder(data.get(b)?.title ?? ""),
   )
-  const table = await buildEventTable(currentSlug, sorted, data)
-  showEdgePopup(title, `함께 엮인 사건 ${sorted.length}건`, table)
+  let content: HTMLElement
+  if (sorted.length > 0) {
+    content = await buildEventTable(currentSlug, sorted, data)
+  } else {
+    content = document.createElement("div")
+    content.className = "bn-edge-empty"
+    content.textContent = "함께 엮인 📰·🔥 사건이 아직 없다."
+  }
+  const count = `함께 엮인 사건 ${sorted.length}건`
+  showEdgePopup(title, kind ? `${kind} · ${count}` : count, content)
 }

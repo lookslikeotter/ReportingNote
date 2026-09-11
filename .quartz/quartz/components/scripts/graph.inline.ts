@@ -33,7 +33,7 @@ import {
   nodeLabel,
   normalizeName,
   pairKey,
-  showEdgePopup,
+  sharedEvents,
   showEventPopup,
 } from "./bongnudo"
 
@@ -591,24 +591,12 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     renderPixiFromD3()
   }
 
+  // 어떤 선이든 양 끝이 함께 엮인 사건 표. 소속·세력 관계 선은 사건을 본문 링크로 찾는다
   function openLinkPopup(ld: LinkData) {
     const { source: a, target: b } = ld
-    const title = `${a.text} ─ ${b.text}`
-    const href = (id: SimpleSlug) => resolveRelative(fullSlug, id)
-    if (ld.member) {
-      const [person, org] = a.id.startsWith("02-인물/") ? [a, b] : [b, a]
-      showEdgePopup(title, "소속 관계", [
-        { icon: "👤", label: person.text, desc: `${org.text} 소속`, href: href(person.id) },
-        { icon: "🏛️", label: org.text, href: href(org.id) },
-      ])
-    } else if (ld.relation) {
-      showEdgePopup(title, `세력 관계 · ${ld.relation}`, [
-        { icon: "🏛️", label: a.text, desc: "근거는 세력 노트의 '세력 관계' 섹션", href: href(a.id) },
-        { icon: "🏛️", label: b.text, href: href(b.id) },
-      ])
-    } else {
-      void showEventPopup(title, fullSlug, ld.events ?? [], data)
-    }
+    const events = ld.events ?? sharedEvents(data, resolveLink, a.id, b.id)
+    const kind = ld.member ? "소속" : ld.relation ? `세력 관계 · ${ld.relation}` : undefined
+    void showEventPopup(`${a.text} ─ ${b.text}`, fullSlug, events, data, kind)
   }
 
   app.canvas.addEventListener("pointermove", (e) => {

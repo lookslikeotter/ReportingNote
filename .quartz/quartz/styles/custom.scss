@@ -414,33 +414,9 @@ tr:has(.bn-lv-scoop) > td * {
   margin: 0.2rem 0 0.8rem;
 }
 
-.bn-edge-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-
-  & li {
-    padding: 0.5rem 0.6rem;
-    border-radius: 8px;
-
-    & + li {
-      border-top: 1px solid var(--lightgray);
-    }
-  }
-}
-
-.bn-edge-item {
-  font-weight: 600;
-  color: var(--dark);
-  text-decoration: none;
-}
-
-a.bn-edge-item:hover {
-  color: var(--secondary);
-}
-
-.bn-edge-desc {
-  font-size: 13px;
-  color: var(--darkgray);
-  margin-top: 0.2rem;
+// 함께 엮인 사건이 없을 때 안내
+.bn-edge-empty {
+  font-size: 14px;
+  color: var(--gray);
+  padding: 0.5rem 0;
 }
