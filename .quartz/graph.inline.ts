@@ -237,8 +237,14 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   const eventWeight = new Map<string, SimpleLinkData>()
   for (const [, details] of data.entries()) {
     if (!(details.tags ?? []).some((t) => EVENT_TAGS.includes(t))) continue
+    // 사건 인연 선은 인물끼리만 잇는다. 사건 노트에 소속 설명으로 링크된 세력·장소는 사건 당사자로 보지 않는다
+    // (세력과 인물은 소속 점선으로만 이어진다).
     const involved = [
-      ...new Set((details.links ?? []).map(resolveLink).filter((d) => isInfoNode(d))),
+      ...new Set(
+        (details.links ?? [])
+          .map(resolveLink)
+          .filter((d) => isInfoNode(d) && d.startsWith("02-인물/")),
+      ),
     ]
     for (let i = 0; i < involved.length; i++) {
       for (let j = i + 1; j < involved.length; j++) {
