@@ -346,19 +346,39 @@ td > code {
 
 // 봉누도2: 취재가치별 표 행 배경 (Obsidian에서는 .obsidian/snippets/bongnudo-rows.css가 같은 규칙)
 
-// 📰 사건 — 아주 옅은 초록
+// 색: 노션 배경색 계열. 옅은 배경 + 행 맨 왼쪽 3px 진한 띠 (라이트·다크 모두 반투명이라 그대로 쓴다)
+// 파랑·빨강·노랑은 색각 이상이 있어도 서로 구분된다
+:root {
+  --bn-news-bg: rgba(35, 131, 226, 0.13);
+  --bn-news-bar: #2383e2;
+  --bn-scoop-bg: rgba(235, 87, 87, 0.16);
+  --bn-scoop-bar: #e03e3e;
+  --bn-event-bg: rgba(223, 171, 1, 0.2);
+  --bn-event-bar: #dfab01;
+}
+
+// 📰 사건 — 옅은 파랑
 tr:has(.bn-lv-news) > td {
-  background-color: rgba(80, 200, 120, 0.1) !important;
+  background-color: var(--bn-news-bg) !important;
+}
+tr:has(.bn-lv-news) > td:first-child {
+  box-shadow: inset 3px 0 0 var(--bn-news-bar);
 }
 
 // 🔥 특종 — 옅은 빨강
 tr:has(.bn-lv-scoop) > td {
-  background-color: rgba(255, 80, 60, 0.12) !important;
+  background-color: var(--bn-scoop-bg) !important;
+}
+tr:has(.bn-lv-scoop) > td:first-child {
+  box-shadow: inset 3px 0 0 var(--bn-scoop-bar);
 }
 
 // 📅 이벤트 — 옅은 노랑
 tr:has(.bn-lv-event) > td {
-  background-color: rgba(255, 200, 0, 0.16) !important;
+  background-color: var(--bn-event-bg) !important;
+}
+tr:has(.bn-lv-event) > td:first-child {
+  box-shadow: inset 3px 0 0 var(--bn-event-bar);
 }
 
 // 칸 안쪽 요소가 배경을 덮지 않게
@@ -458,7 +478,7 @@ tr:has(.bn-lv-event) > td * {
 .bn-legend {
   flex: 0 0 auto;
   align-self: baseline;
-  margin-left: 0.6rem;
+  margin-left: 1.6rem;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -480,14 +500,18 @@ tr:has(.bn-lv-event) > td * {
     border-radius: 4px;
     border: 1px solid var(--lightgray);
 
+    // 표 행과 같은 모양: 옅은 배경 + 왼쪽 진한 띠
     &.news {
-      background-color: rgba(80, 200, 120, 0.1);
+      background-color: var(--bn-news-bg);
+      box-shadow: inset 3px 0 0 var(--bn-news-bar);
     }
     &.scoop {
-      background-color: rgba(255, 80, 60, 0.12);
+      background-color: var(--bn-scoop-bg);
+      box-shadow: inset 3px 0 0 var(--bn-scoop-bar);
     }
     &.event {
-      background-color: rgba(255, 200, 0, 0.16);
+      background-color: var(--bn-event-bg);
+      box-shadow: inset 3px 0 0 var(--bn-event-bar);
     }
   }
 }
