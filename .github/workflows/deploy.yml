@@ -16,8 +16,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  # 만들기와 배포를 한 작업으로 합쳐 서버를 두 번 준비하지 않는다
+  deploy:
     runs-on: ubuntu-22.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout notes
         uses: actions/checkout@v4
@@ -35,7 +39,16 @@ jobs:
         with:
           node-version: 22
 
+      # Quartz 설치 결과를 캐시해 두고, 캐시가 있으면 설치(npm ci)를 건너뛴다
+      - name: Restore Quartz dependencies
+        id: deps
+        uses: actions/cache@v4
+        with:
+          path: quartz/node_modules
+          key: quartz-v4.5.2-node22-${{ runner.os }}-${{ hashFiles('quartz/package-lock.json') }}
+
       - name: Install Quartz
+        if: steps.deps.outputs.cache-hit != 'true'
         working-directory: quartz
         run: npm ci
 
@@ -45,7 +58,7 @@ jobs:
           mkdir -p quartz/content
           rsync -a \
             --exclude '.git' --exclude '.github' --exclude '.quartz' --exclude '.obsidian' \
-            --exclude 'CLAUDE.md' --exclude '99 템플릿' --exclude 'publish.css' --exclude '.gitignore' \
+            --exclude 'CLAUDE.md' --exclude '99 템플릿' --exclude '.gitignore' \
             notes/ quartz/content/
           # 사이트 첫 화면 = 0일차 일지 (제목을 붙여 index.md로 복사)
           { echo '---'; echo 'title: 0일차'; tail -n +2 "notes/01 일지/0일차.md"; } > quartz/content/index.md
@@ -66,13 +79,6 @@ jobs:
         with:
           path: quartz/public
 
-  deploy:
-    needs: build
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
