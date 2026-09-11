@@ -211,6 +211,11 @@ td > code {
   font-weight: 700;
 }
 
+// 최상위 폴더들 사이 간격
+.explorer .explorer-ul > li:has(> .folder-container) + li:has(> .folder-container) {
+  margin-top: 0.6rem;
+}
+
 // 봉누도2: 오른쪽 사이드바 그래프 2개 — 제목 숨김, 크게
 .graph > h3 {
   display: none;
