@@ -30,7 +30,7 @@ import {
   nearestLink,
   nodeLabel,
   normalizeName,
-  showEventPopup,
+  showLinkPopup,
 } from "./bongnudo"
 
 // 봉누도2 — 인물 그래프 스크립트 (오른쪽 위 그래프와 크게 보기 창). Quartz v4.5.2 graph.inline.ts를 바탕으로 했다.
@@ -41,7 +41,7 @@ import {
 //     같은 소속끼리는 선 없이 보이지 않는 힘으로 가까이 모은다
 //   - 처음에는 모든 인물이 한 화면에 들어오게 맞추고, 인물 페이지로 가면 그 인물 쪽으로 옮기며 확대한다
 //   - 페이지를 옮겨도 다시 그리지 않는다 (크기·테마가 바뀔 때만)
-//   - 선에 마우스를 올리면 하이라이트, 누르면 두 인물이 함께 엮인 사건 표 창
+//   - 선에 마우스를 올리면 하이라이트, 누르면 두 인물이 함께 엮인 사건·이벤트 표 창
 const PERSON_TAG = "인물"
 
 // 같은 소속끼리 모으는 힘의 세기
@@ -572,7 +572,15 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   app.canvas.addEventListener("click", () => {
     if (hoveredNodeId !== null || !hoveredLink) return
     const { source, target, events } = hoveredLink.simulationData
-    void showEventPopup(`${source.text} ─ ${target.text}`, currentFullSlug, events, data)
+    void showLinkPopup({
+      title: `${source.text} ─ ${target.text}`,
+      currentSlug: currentFullSlug,
+      data,
+      resolveLink,
+      a: source.id,
+      b: target.id,
+      knownEvents: events,
+    })
   })
 
   let stopAnimation = false

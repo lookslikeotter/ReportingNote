@@ -72,54 +72,15 @@ export function linkResolver(data: ContentData): (dest: SimpleSlug) => SimpleSlu
 
 // ── 사건 인연 선 ──
 
-// 📰 사건·🔥 특종 태그가 붙은 사건 노트만 선을 만든다 (☕ 일상 사건은 태그가 없다)
+// 📰 사건·🔥 특종 태그가 붙은 사건 노트만 선을 만든다 (☕ 일상 사건은 태그가 없고, 📅 이벤트는 선을 만들지 않는다)
 const EVENT_TAGS = ["사건", "특종"]
-const isEventNote = (details?: ContentDetails) =>
-  (details?.tags ?? []).some((t) => EVENT_TAGS.includes(t))
-
-// 소속·세력 관계 선(한쪽 이상이 세력)을 눌렀을 때 보여 줄 📰·🔥 사건:
-// 일지 표(N일차) '관련 인물' 칸에 양 끝이 모두 들어간 사건.
-// 세력은 조직 단위로 얽힌 사건(사건 노트의 관련세력)에만 이 칸에 적는다 — 조직원 개인이 저지른 일은 세력의 사건이 아니다.
-export async function factionEvents(
-  currentSlug: FullSlug,
-  data: ContentData,
-  resolveLink: (dest: SimpleSlug) => SimpleSlug,
-  a: SimpleSlug,
-  b: SimpleSlug,
-): Promise<SimpleSlug[]> {
-  const here = window.location.toString()
-  const slugsIn = (cell?: Element) =>
-    [...(cell?.querySelectorAll<HTMLElement>("a[data-slug]") ?? [])].map((el) =>
-      resolveLink(simplifySlug(el.dataset.slug as FullSlug)),
-    )
-  const events: SimpleSlug[] = []
-  const days = [...data.keys()].filter((id) => /^01-일지\/\d+일차$/.test(id))
-  for (const day of days) {
-    const dayUrl = new URL(resolveRelative(currentSlug, day), here).toString()
-    const table = (await fetchDayPage(dayUrl))?.querySelector("article table")
-    if (!table) continue
-    const heads = [...table.querySelectorAll("thead th")].map((th) => th.textContent ?? "")
-    const eventCol = heads.findIndex((h) => h.includes("사건"))
-    const relatedCol = heads.findIndex((h) => h.includes("관련"))
-    if (eventCol < 0 || relatedCol < 0) continue
-    for (const tr of table.querySelectorAll("tbody tr")) {
-      const cells = tr.querySelectorAll("td")
-      const eventId = slugsIn(cells[eventCol])[0]
-      const related = new Set(slugsIn(cells[relatedCol]))
-      if (eventId && isEventNote(data.get(eventId)) && related.has(a) && related.has(b)) {
-        events.push(eventId)
-      }
-    }
-  }
-  return events
-}
 
 export type EventPair = {
   source: SimpleSlug
   target: SimpleSlug
   // 함께 엮인 사건 수 (선 굵기)
   weight: number
-  // 그 사건 노트들 (선을 누르면 표로 보여 줌)
+  // 그 사건 노트들
   events: SimpleSlug[]
 }
 
@@ -131,7 +92,7 @@ export function eventPairs(
 ): Map<string, EventPair> {
   const pairs = new Map<string, EventPair>()
   for (const [eventId, details] of data.entries()) {
-    if (!isEventNote(details)) continue
+    if (!(details.tags ?? []).some((t) => EVENT_TAGS.includes(t))) continue
     const involved = [...new Set((details.links ?? []).map(resolveLink).filter(isParticipant))]
     for (let i = 0; i < involved.length; i++) {
       for (let j = i + 1; j < involved.length; j++) {
@@ -235,12 +196,6 @@ function eventSummary(details: ContentDetails | undefined): string {
   return (m?.[1] ?? "").trim()
 }
 
-// 일차·순번 정렬 값 ("1일차-03 …" → 1003)
-function eventOrder(title: string): number {
-  const m = title.match(/^(\d+)일차-(\d+)/)
-  return m ? Number(m[1]) * 1000 + Number(m[2]) : 0
-}
-
 // 일지 페이지(N일차) HTML. 실패는 기억하지 않는다 (다음에 다시 시도)
 const dayPageCache = new Map<string, Promise<Document | null>>()
 function fetchDayPage(url: string): Promise<Document | null> {
@@ -289,72 +244,113 @@ function fallbackRow(details: ContentDetails | undefined, href: string): HTMLEle
   return tr
 }
 
-// 사건들을 일지와 같은 모양의 표로 만든다: 각 사건이 있는 일지 페이지(N일차) 표에서 그 사건의 행을 그대로 가져온다.
-async function buildEventTable(
-  currentSlug: FullSlug,
-  events: SimpleSlug[],
-  data: ContentData,
-): Promise<HTMLElement> {
-  const here = window.location.toString()
-  let thead: Element | null = null
-  const tbody = document.createElement("tbody")
-  for (const id of events) {
-    const details = data.get(id)
-    const eventUrl = new URL(resolveRelative(currentSlug, id), here)
-    const day = (details?.title ?? "").match(/^(\d+)일차-/)?.[1]
-    let row: Element | undefined
-    let dayUrl = ""
-    if (day) {
-      dayUrl = new URL(
-        resolveRelative(currentSlug, `01-일지/${day}일차` as SimpleSlug),
-        here,
-      ).toString()
-      const table = (await fetchDayPage(dayUrl))?.querySelector("article table")
-      thead ??= table?.querySelector("thead") ?? null
-      row = [...(table?.querySelectorAll("tbody tr") ?? [])].find((tr) =>
-        [...tr.querySelectorAll("a[href]")].some(
-          (a) => new URL(a.getAttribute("href")!, dayUrl).pathname === eventUrl.pathname,
-        ),
-      )
-    }
-    if (row) {
-      // 일지 페이지 기준 상대 링크를 절대 주소로 바꿔서 옮긴다
-      const clone = document.importNode(row, true)
-      clone.querySelectorAll("a[href]").forEach((a) => {
-        a.setAttribute("href", new URL(a.getAttribute("href")!, dayUrl).toString())
-      })
-      tbody.append(clone)
-    } else {
-      tbody.append(fallbackRow(details, eventUrl.toString()))
-    }
-  }
-  const table = document.createElement("table")
-  table.append(thead ? document.importNode(thead, true) : defaultHead(), tbody)
-  const wrap = document.createElement("div")
-  wrap.className = "bn-edge-table"
-  wrap.append(table)
-  return wrap
+// 일지 표(N일차)의 행 하나
+type DayRow = {
+  // 행의 사건·이벤트 노트
+  id: SimpleSlug
+  // 맨 왼쪽 칸 이모지: ☕ daily · 📰 news · 🔥 scoop · 📅 event
+  kind: "daily" | "news" | "scoop" | "event"
+  // '관련 인물' 칸의 인물·세력
+  related: Set<SimpleSlug>
+  // 링크를 절대 주소로 고친 행 복사본
+  row: Element
 }
 
-// 선을 눌렀을 때: 양 끝이 함께 엮인 사건 표 창 (일차·순번 순). kind는 선 종류 (예: "소속", "세력 관계 · 경쟁")
-export async function showEventPopup(
-  title: string,
+// 모든 일지 페이지의 표를 일차 순서대로 읽는다
+async function readDayTables(
   currentSlug: FullSlug,
-  events: SimpleSlug[],
   data: ContentData,
-  kind?: string,
-) {
-  const sorted = [...events].sort(
-    (a, b) => eventOrder(data.get(a)?.title ?? "") - eventOrder(data.get(b)?.title ?? ""),
-  )
+  resolveLink: (dest: SimpleSlug) => SimpleSlug,
+): Promise<{ thead: Element | null; rows: DayRow[] }> {
+  const here = window.location.toString()
+  const slugsIn = (cell?: Element) =>
+    [...(cell?.querySelectorAll<HTMLElement>("a[data-slug]") ?? [])].map((el) =>
+      resolveLink(simplifySlug(el.dataset.slug as FullSlug)),
+    )
+  const days = [...data.keys()]
+    .map((id) => ({ id, n: Number(id.match(/^01-일지\/(\d+)일차$/)?.[1] ?? NaN) }))
+    .filter((d) => !Number.isNaN(d.n))
+    .sort((x, y) => x.n - y.n)
+
+  let thead: Element | null = null
+  const rows: DayRow[] = []
+  for (const { id: day } of days) {
+    const dayUrl = new URL(resolveRelative(currentSlug, day), here).toString()
+    const table = (await fetchDayPage(dayUrl))?.querySelector("article table")
+    if (!table) continue
+    const heads = [...table.querySelectorAll("thead th")].map((th) => th.textContent ?? "")
+    const eventCol = heads.findIndex((h) => h.includes("사건"))
+    const relatedCol = heads.findIndex((h) => h.includes("관련"))
+    if (eventCol < 0 || relatedCol < 0) continue
+    thead ??= table.querySelector("thead")
+    for (const tr of table.querySelectorAll("tbody tr")) {
+      const cells = tr.querySelectorAll("td")
+      const id = slugsIn(cells[eventCol])[0]
+      if (!id) continue
+      const first = cells[0]
+      const kind = first?.querySelector(".bn-lv-scoop")
+        ? "scoop"
+        : first?.querySelector(".bn-lv-news")
+          ? "news"
+          : first?.querySelector(".bn-lv-event")
+            ? "event"
+            : "daily"
+      const row = document.importNode(tr, true)
+      row.querySelectorAll("a[href]").forEach((a) => {
+        a.setAttribute("href", new URL(a.getAttribute("href")!, dayUrl).toString())
+      })
+      rows.push({ id, kind, related: new Set(slugsIn(cells[relatedCol])), row })
+    }
+  }
+  return { thead, rows }
+}
+
+// 선을 눌렀을 때: 양 끝이 함께 엮인 📰 사건·🔥 특종·📅 이벤트를 일지와 같은 모양의 표로 보여 준다 (일지 순서).
+//   - 일지 표 '관련 인물' 칸에 양 끝이 모두 들어간 행. 세력은 조직 단위로 얽힌 사건(관련세력)에만 이 칸에 적는다
+//   - knownEvents: 그래프 선을 만든 사건들 (관련 인물 칸에 빠져 있어도 넣는다)
+// ☕ 일상은 넣지 않는다. 📅 이벤트는 그래프에 노드·선을 만들지 않지만 이 창에는 나온다.
+export async function showLinkPopup(p: {
+  title: string
+  // 선 종류 (예: "소속", "세력 관계 · 경쟁")
+  kind?: string
+  currentSlug: FullSlug
+  data: ContentData
+  resolveLink: (dest: SimpleSlug) => SimpleSlug
+  a: SimpleSlug
+  b: SimpleSlug
+  knownEvents?: SimpleSlug[]
+}) {
+  const known = new Set(p.knownEvents ?? [])
+  const { thead, rows } = await readDayTables(p.currentSlug, p.data, p.resolveLink)
+  const picked = new Map<SimpleSlug, DayRow>()
+  for (const r of rows) {
+    if (r.kind === "daily" || picked.has(r.id)) continue
+    if (known.has(r.id) || (r.related.has(p.a) && r.related.has(p.b))) picked.set(r.id, r)
+  }
+
+  const tbody = document.createElement("tbody")
+  for (const r of picked.values()) tbody.append(r.row)
+  for (const id of known) {
+    if (picked.has(id)) continue
+    const href = new URL(resolveRelative(p.currentSlug, id), window.location.toString())
+    tbody.append(fallbackRow(p.data.get(id), href.toString()))
+  }
+
   let content: HTMLElement
-  if (sorted.length > 0) {
-    content = await buildEventTable(currentSlug, sorted, data)
+  if (tbody.children.length > 0) {
+    const table = document.createElement("table")
+    table.append(thead ? document.importNode(thead, true) : defaultHead(), tbody)
+    content = document.createElement("div")
+    content.className = "bn-edge-table"
+    content.append(table)
   } else {
     content = document.createElement("div")
     content.className = "bn-edge-empty"
-    content.textContent = "함께 엮인 📰·🔥 사건이 아직 없다."
+    content.textContent = "함께 엮인 📰·🔥 사건이나 📅 이벤트가 아직 없다."
   }
-  const count = `함께 엮인 사건 ${sorted.length}건`
-  showEdgePopup(title, kind ? `${kind} · ${count}` : count, content)
+
+  const eventCount = [...picked.values()].filter((r) => r.kind === "event").length
+  const caseCount = tbody.children.length - eventCount
+  const count = `함께 엮인 사건 ${caseCount}건` + (eventCount > 0 ? ` · 이벤트 ${eventCount}건` : "")
+  showEdgePopup(p.title, p.kind ? `${p.kind} · ${count}` : count, content)
 }

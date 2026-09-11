@@ -32,9 +32,8 @@ import {
   nearestLink,
   nodeLabel,
   normalizeName,
-  factionEvents,
   pairKey,
-  showEventPopup,
+  showLinkPopup,
 } from "./bongnudo"
 
 // 봉누도2 — Quartz v4.5.2 graph.inline.ts 수정본 (오른쪽 아래 그래프와 전체 그래프).
@@ -591,12 +590,19 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     renderPixiFromD3()
   }
 
-  // 어떤 선이든 양 끝이 함께 엮인 사건 표. 소속·세력 관계 선은 세력이 조직 단위로 얽힌 사건만 (일지 표 관련 인물 칸)
-  async function openLinkPopup(ld: LinkData) {
+  // 어떤 선이든 양 끝이 함께 엮인 사건·이벤트 표 (일지 표 관련 인물 칸 기준)
+  function openLinkPopup(ld: LinkData) {
     const { source: a, target: b } = ld
-    const events = ld.events ?? (await factionEvents(fullSlug, data, resolveLink, a.id, b.id))
-    const kind = ld.member ? "소속" : ld.relation ? `세력 관계 · ${ld.relation}` : undefined
-    await showEventPopup(`${a.text} ─ ${b.text}`, fullSlug, events, data, kind)
+    void showLinkPopup({
+      title: `${a.text} ─ ${b.text}`,
+      kind: ld.member ? "소속" : ld.relation ? `세력 관계 · ${ld.relation}` : undefined,
+      currentSlug: fullSlug,
+      data,
+      resolveLink,
+      a: a.id,
+      b: b.id,
+      knownEvents: ld.events,
+    })
   }
 
   app.canvas.addEventListener("pointermove", (e) => {
@@ -608,7 +614,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   })
   app.canvas.addEventListener("pointerleave", () => setHoveredLink(null))
   app.canvas.addEventListener("click", () => {
-    if (hoveredNodeId === null && hoveredLink) void openLinkPopup(hoveredLink.simulationData)
+    if (hoveredNodeId === null && hoveredLink) openLinkPopup(hoveredLink.simulationData)
   })
 
   let stopAnimation = false
