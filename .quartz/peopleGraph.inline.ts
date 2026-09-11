@@ -24,8 +24,8 @@ import { D3Config } from "../Graph"
 // Quartz v4.5.2 graph.inline.ts를 바탕으로, PERSON_TAG 태그가 붙은 노트만 노드로 그린다.
 // 선은 인물 노트끼리 서로 링크한 경우에만 생긴다. 이름표는 처음부터 보이고, 앞의 번호(001 등)는 뗀다.
 const PERSON_TAG = "인물"
-// 처음부터 이 배율로 확대해서 시작 (graph.inline.ts 수정본과 같은 값)
-const INITIAL_ZOOM = 1.5
+// 처음에는 모든 인물이 한 화면에 들어오도록 배율을 자동으로 맞추고,
+// 확대·축소해도 이름표 글자 크기는 화면에서 그대로 유지한다.
 
 type GraphicsInfo = {
   color: string
@@ -143,6 +143,10 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   const radius = (Math.min(width, height) / 2) * 0.8
   if (enableRadial) simulation.force("radial", forceRadial(radius).strength(0.2))
 
+  // 배치를 미리 계산해 두고 시작한다 (한 화면에 맞추려면 최종 위치가 필요)
+  simulation.stop()
+  for (let i = 0; i < 300; i++) simulation.tick()
+
   // precompute style prop strings as pixi doesn't support css variables
   const cssVars = [
     "--secondary",
@@ -246,7 +250,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     tweens.get("label")?.stop()
     const tweenGroup = new TweenGroup()
 
-    const defaultScale = 1 / scale
+    // 현재 확대 배율을 나눠서, 화면에서 보이는 글자 크기를 일정하게
+    const defaultScale = 1 / (scale * currentTransform.k)
     const activeScale = defaultScale * 1.1
     for (const n of nodeRenderData) {
       const nodeId = n.simulationData.id
@@ -472,17 +477,32 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         currentTransform = transform
         stage.scale.set(transform.k, transform.k)
         stage.position.set(transform.x, transform.y)
+
+        // 확대·축소해도 이름표 글자 크기는 화면에서 그대로
+        for (const n of nodeRenderData) {
+          n.label.scale.set(1 / (scale * transform.k))
+        }
       })
 
     const canvasSelection = select<HTMLCanvasElement, NodeData>(app.canvas)
     canvasSelection.call(zoomBehavior)
 
-    // 가운데를 기준으로 확대한 채 시작
-    if (INITIAL_ZOOM !== 1) {
-      const k = INITIAL_ZOOM
+    // 모든 인물이 한 화면에 들어오도록 배율과 위치를 맞춰서 시작
+    if (graphData.nodes.length > 0) {
+      const pad = 40
+      const xs = graphData.nodes.map((n) => n.x ?? 0)
+      const ys = graphData.nodes.map((n) => n.y ?? 0)
+      const minX = Math.min(...xs) - pad
+      const maxX = Math.max(...xs) + pad
+      const minY = Math.min(...ys) - pad
+      const maxY = Math.max(...ys) + pad
+      const fitK = Math.min(width / (maxX - minX), height / (maxY - minY))
+      const k = Math.max(0.25, Math.min(2, fitK))
+      const cx = (minX + maxX) / 2 + width / 2
+      const cy = (minY + maxY) / 2 + height / 2
       canvasSelection.call(
         zoomBehavior.transform,
-        zoomIdentity.translate((width / 2) * (1 - k), (height / 2) * (1 - k)).scale(k),
+        zoomIdentity.translate(width / 2 - k * cx, height / 2 - k * cy).scale(k),
       )
     }
   }
