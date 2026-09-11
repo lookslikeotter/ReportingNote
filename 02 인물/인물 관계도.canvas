@@ -1,0 +1,21 @@
+{
+	"nodes":[
+		{"id":"g-broadcast","type":"group","label":"봉누도방송국","x":-20,"y":-60,"width":520,"height":170},
+		{"id":"g-cityhall","type":"group","label":"시청","x":580,"y":-60,"width":260,"height":170},
+		{"id":"g-citizen","type":"group","label":"시민","x":920,"y":-60,"width":260,"height":170},
+		{"id":"g-police","type":"group","label":"경찰","x":-20,"y":200,"width":260,"height":170},
+		{"id":"g-hospital","type":"group","label":"병원","x":280,"y":200,"width":260,"height":170},
+		{"id":"g-transport","type":"group","label":"교통정비공사","x":580,"y":200,"width":260,"height":170},
+		{"id":"p-001","type":"text","text":"**[[001 이윤진|이윤진]]**\n방송국장","x":0,"y":0,"width":220,"height":90},
+		{"id":"p-003","type":"text","text":"**[[003 너구리|너구리]]**\n기자","x":260,"y":0,"width":220,"height":90},
+		{"id":"p-002","type":"text","text":"**[[002 봉순|봉순]]**\n시장","x":600,"y":0,"width":220,"height":90},
+		{"id":"p-004","type":"text","text":"**[[004 노다비|노다비]]**\n시민 · 시청 직원 지원 희망","x":940,"y":0,"width":220,"height":90},
+		{"id":"p-gosudal","type":"text","text":"**[[고수달]]**\n청장 · 아직 못 만남","x":0,"y":260,"width":220,"height":90,"color":"#808080"},
+		{"id":"p-gangji","type":"text","text":"**[[강지]]**\n병원장 · 아직 못 만남","x":300,"y":260,"width":220,"height":90,"color":"#808080"},
+		{"id":"p-neobul","type":"text","text":"**[[너불]]**\n국장 · 아직 못 만남","x":600,"y":260,"width":220,"height":90,"color":"#808080"}
+	],
+	"edges":[
+		{"id":"e-001-003","fromNode":"p-001","fromSide":"right","toNode":"p-003","toSide":"left","label":"상관"},
+		{"id":"e-004-002","fromNode":"p-004","fromSide":"left","toNode":"p-002","toSide":"right","label":"시장을 만났다고 함"}
+	]
+}
