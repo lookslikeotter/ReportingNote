@@ -38,6 +38,15 @@ const CATEGORY_COLORS: [string, string][] = [
   ["기관", "#0075de"],
   ["시민", "#1aae39"],
 ]
+
+// 봉누도2: 세력 관계 선 모양. 세력 노트의 관계 태그(예: 적대/레드문)로 세력끼리 잇는다.
+// distance는 기본 선 길이에 곱하는 값 (동맹은 가깝게, 적대는 멀리 배치)
+const RELATION_STYLES: Record<string, { color: string; width: number; distance: number }> = {
+  동맹: { color: "#1aae39", width: 2.5, distance: 0.8 },
+  협력: { color: "#0075de", width: 2, distance: 1.2 },
+  경쟁: { color: "#dd5b00", width: 2, distance: 1.8 },
+  적대: { color: "#e03131", width: 3, distance: 2.6 },
+}
 function isInfoNode(id: string) {
   return INFO_PREFIXES.some((p) => id.startsWith(p)) && !INFO_EXCLUDE.includes(id)
 }
@@ -62,6 +71,8 @@ type SimpleLinkData = {
   member?: boolean
   // 봉누도2: 사건 인연 선의 굵기 (함께 엮인 📰·🔥 사건 수)
   weight?: number
+  // 봉누도2: 세력 관계 선 (동맹·협력·경쟁·적대)
+  relation?: string
 }
 
 type LinkData = {
@@ -69,6 +80,7 @@ type LinkData = {
   target: NodeData
   member?: boolean
   weight?: number
+  relation?: string
 } & SimulationLinkDatum<NodeData>
 
 type LinkRenderData = GraphicsInfo & {
@@ -192,6 +204,25 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     }
   }
 
+  // 봉누도2: 세력 관계 선 — 세력 노트의 관계 태그(동맹/·협력/·경쟁/·적대/ + 상대 세력 이름)로 세력끼리 잇는다.
+  // 관계 태그가 없으면 세력끼리는 선을 긋지 않는다. 양쪽에 모두 적혀 있으면 한 번만 긋는다.
+  const relationPairs = new Map<string, SimpleLinkData>()
+  for (const [id, details] of data.entries()) {
+    if (!id.startsWith("03-세력/")) continue
+    for (const tag of details.tags ?? []) {
+      const m = tag.match(/^(동맹|협력|경쟁|적대)\/(.+)$/)
+      if (!m) continue
+      const other = orgByName.get(normalizeName(m[2]))
+      if (!other || other === id) continue
+      const key = pairKey(id, other)
+      if (!relationPairs.has(key)) {
+        relationPairs.set(key, { source: id, target: other, relation: m[1] })
+        // 세력 페이지의 이웃 계산에도 쓰도록 넣어 둔다 (관계 세력이 그래프에 보이게)
+        links.push({ source: id, target: other, relation: m[1] })
+      }
+    }
+  }
+
   const neighbourhood = new Set<SimpleSlug>()
   const wl: (SimpleSlug | "__SENTINEL")[] = [slug, "__SENTINEL"]
   if (depth >= 0) {
@@ -260,6 +291,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   }
   const drawnLinks: SimpleLinkData[] = [
     ...links.filter((l) => l.member),
+    ...relationPairs.values(),
     ...[...eventWeight.entries()]
       .filter(([key]) => !memberPairs.has(key))
       .map(([, l]) => l),
@@ -273,6 +305,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         target: nodes.find((n) => n.id === l.target)!,
         member: l.member ?? false,
         weight: l.weight ?? 1,
+        relation: l.relation,
       })),
   }
 
@@ -286,9 +319,16 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     // 봉누도2: 사건 인연 선은 함께 엮인 사건이 많을수록 더 가깝게
     .force(
       "link",
-      forceLink(graphData.links.filter((l) => !l.member)).distance(
+      forceLink(graphData.links.filter((l) => !l.member && !l.relation)).distance(
         (l: LinkData) => linkDistance / (1 + 0.3 * ((l.weight ?? 1) - 1)),
       ),
+    )
+    // 봉누도2: 세력 관계는 관계 종류에 따라 거리를 둔다 (동맹 가깝게 … 적대 멀리)
+    .force(
+      "relation",
+      forceLink(graphData.links.filter((l) => l.relation))
+        .distance((l: LinkData) => linkDistance * (RELATION_STYLES[l.relation!]?.distance ?? 1))
+        .strength(0.7),
     )
     // 봉누도2: 소속 선은 더 세게, 더 가깝게 당긴다 (기관 주위에 소속 인물이 모이게)
     .force(
@@ -388,11 +428,13 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       }
 
       // 봉누도2: 소속 선은 항상 진하게, 사건 인연 선은 중간 진하기(마우스를 올리면 진하게)
-      l.color = l.simulationData.member
-        ? computedStyleMap["--darkgray"]
-        : l.active
+      l.color = l.simulationData.relation
+        ? (RELATION_STYLES[l.simulationData.relation]?.color ?? computedStyleMap["--gray"])
+        : l.simulationData.member
           ? computedStyleMap["--darkgray"]
-          : computedStyleMap["--gray"]
+          : l.active
+            ? computedStyleMap["--darkgray"]
+            : computedStyleMap["--gray"]
       tweenGroup.add(new Tweened<LinkRenderData>(l).to({ alpha }, 200))
     }
 
@@ -582,7 +624,11 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     const linkRenderDatum: LinkRenderData = {
       simulationData: l,
       gfx,
-      color: l.member ? computedStyleMap["--darkgray"] : computedStyleMap["--gray"],
+      color: l.relation
+        ? (RELATION_STYLES[l.relation]?.color ?? computedStyleMap["--gray"])
+        : l.member
+          ? computedStyleMap["--darkgray"]
+          : computedStyleMap["--gray"],
       alpha: 1,
       active: false,
     }
@@ -713,7 +759,10 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
           .lineTo(x2, y2)
           .stroke({
             alpha: l.alpha,
-            width: Math.min(1 + 0.8 * (linkData.weight ?? 1), 4),
+            // 세력 관계 선은 관계별 두께, 사건 인연 선은 사건 수에 따라 굵게
+            width: linkData.relation
+              ? (RELATION_STYLES[linkData.relation]?.width ?? 2)
+              : Math.min(1 + 0.8 * (linkData.weight ?? 1), 4),
             color: l.color,
           })
       }
