@@ -17,6 +17,9 @@ const BUSY_SELECTOR = [
 ].join(", ")
 const SCROLL_KEY = "bn-restore-scroll"
 
+// 브라우저 콘솔에 남기는 기록 (문제가 생겼을 때 어디서 멈췄는지 보려고)
+const log = (...args: unknown[]) => console.info("[bn-live]", ...args)
+
 // 사이트 맨 위 주소 (postscript.js가 있는 곳)
 function siteRoot(): URL {
   const s = [...document.querySelectorAll<HTMLScriptElement>("script[src]")].find((el) =>
@@ -33,6 +36,8 @@ let currentBuild = meta("bn-build")
 const loadedCode = meta("bn-code")
 let pending: { build: string; code: string } | null = null
 let applying = false
+let toldBusy = false
+log("자동 갱신 켜짐", currentBuild.slice(0, 7) || "(버전 표시 없음)")
 
 // 브라우저 캐시를 새 파일로 바꿔 둔다 (다음 불러오기 때 옛 파일을 쓰지 않게)
 async function primeCache(urls: string[]) {
@@ -64,6 +69,7 @@ function saveScroll() {
 
 // 페이지 전체 새로 불러오기 (새로고침 버튼, 사이트 코드가 바뀐 자동 갱신)
 async function hardReload() {
+  log("페이지 전체 새로 불러오기")
   await primeCache(siteFiles())
   saveScroll()
   location.reload()
@@ -81,14 +87,27 @@ async function softReload() {
   await primeCache([location.href.split("#")[0]])
   document.dispatchEvent(new CustomEvent("bn-content-updated"))
   const y = window.scrollY
+  // 사이트가 다른 페이지로 이동하는 중이면 spaNavigate가 아무것도 하지 않고 끝난다 → nav가 안 오면 실패로 보고 다시 시도
+  let navigated = false
+  const onNav = () => (navigated = true)
+  document.addEventListener("nav", onNav, { once: true })
   // isBack=true: 맨 위로 올리지 않고, 방문 기록도 새로 쌓지 않는다
   await window.spaNavigate(new URL(location.href), true)
+  document.removeEventListener("nav", onNav)
+  if (!navigated) throw new Error("페이지 갱신이 건너뛰어짐")
   window.scrollTo({ top: y })
+  log("제자리 갱신 완료")
 }
 
 async function applyPending() {
   if (!pending || applying) return
-  if (document.querySelector(BUSY_SELECTOR)) return // 닫힌 뒤 다시 시도
+  if (document.querySelector(BUSY_SELECTOR)) {
+    // 닫힌 뒤 다시 시도
+    if (!toldBusy) log("창·검색이 열려 있어 갱신을 미룸")
+    toldBusy = true
+    return
+  }
+  toldBusy = false
   applying = true
   const next = pending
   try {
@@ -99,8 +118,8 @@ async function applyPending() {
     await softReload()
     currentBuild = next.build
     if (pending === next) pending = null
-  } catch {
-    // 다음 확인 때 다시 시도
+  } catch (e) {
+    console.warn("[bn-live] 갱신 실패, 곧 다시 시도", e)
   } finally {
     applying = false
   }
@@ -115,8 +134,12 @@ async function checkVersion() {
     const v = (await r.json()) as { build: string; code: string }
     if (!v.build) return
     if (!currentBuild) currentBuild = v.build // 버전 표시가 없는 옛 페이지: 지금 것을 기준으로
-    else if (v.build !== currentBuild) pending = v
-  } catch {
+    else if (v.build !== currentBuild && pending?.build !== v.build) {
+      pending = v
+      log("새 버전 발견", currentBuild.slice(0, 7), "→", v.build.slice(0, 7))
+    }
+  } catch (e) {
+    console.warn("[bn-live] 버전 확인 실패", e)
     return
   }
   await applyPending()
