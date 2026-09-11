@@ -53,6 +53,8 @@ jobs:
           cp notes/.quartz/quartz.layout.ts quartz/quartz.layout.ts
           cp notes/.quartz/custom.scss quartz/quartz/styles/custom.scss
           cp notes/.quartz/ExplorerDefaults.tsx quartz/quartz/components/ExplorerDefaults.tsx
+          cp notes/.quartz/PeopleGraph.tsx quartz/quartz/components/PeopleGraph.tsx
+          cp notes/.quartz/peopleGraph.inline.ts quartz/quartz/components/scripts/peopleGraph.inline.ts
 
       - name: Build
         working-directory: quartz
