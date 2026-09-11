@@ -355,17 +355,17 @@ td > code {
 
 // 📰 사건 — 파랑
 tr:has(.bn-lv-news) > td:first-child {
-  box-shadow: inset 3px 0 0 var(--bn-news-bar);
+  box-shadow: inset 5px 0 0 var(--bn-news-bar);
 }
 
 // 🔥 특종 — 빨강
 tr:has(.bn-lv-scoop) > td:first-child {
-  box-shadow: inset 3px 0 0 var(--bn-scoop-bar);
+  box-shadow: inset 5px 0 0 var(--bn-scoop-bar);
 }
 
 // 📅 이벤트 — 노랑
 tr:has(.bn-lv-event) > td:first-child {
-  box-shadow: inset 3px 0 0 var(--bn-event-bar);
+  box-shadow: inset 5px 0 0 var(--bn-event-bar);
 }
 
 // 봉누도2: 새로고침 버튼 (RefreshButton.tsx) — 경로 표시(Home > …) 왼쪽에 한 줄로.
@@ -475,7 +475,7 @@ tr:has(.bn-lv-event) > td:first-child {
   // 견본: 표 행 왼쪽 띠와 같은 가는 세로 막대 (일상은 띠가 없으므로 테두리만)
   & .bn-swatch {
     display: inline-block;
-    width: 4px;
+    width: 5px;
     height: 14px;
     border-radius: 2px;
     box-shadow: inset 0 0 0 1px var(--lightgray);
