@@ -37,6 +37,9 @@ export function isPersonNode(id: string): boolean {
   return isInfoNode(id) && id.startsWith("02-인물/")
 }
 
+// 나희정 본인 노트 (일지 표 '입수 경로'로 나희정과 전해 준 사람을 잇는다)
+export const ME = "02-인물/000-나희정" as SimpleSlug
+
 // 노드 이름표: 인물 이름 앞 번호(001 등)는 뗀다
 export function nodeLabel(title: string): string {
   return title.replace(/^\d{3}\s+/, "")
@@ -88,6 +91,8 @@ export type EventPair = {
 
 // 일지 표(N일차) 📰 사건·🔥 특종 행의 '관련 인물' 칸에 함께 적힌 당사자(isParticipant) 두 명마다 한 쌍을 만든다. 키는 pairKey.
 // 선을 눌렀을 때 뜨는 표와 같은 칸을 기준으로 삼는다. ☕ 일상·📅 이벤트 행은 선을 만들지 않는다.
+// '입수 경로' 칸이 인물 링크뿐이면(나희정이 그 사람에게서 직접 들음) 나희정과 그 인물도 잇는다.
+// 기사·SNS 등 매체로 알게 된 일은 잇지 않는다.
 export async function tableEventPairs(
   currentSlug: FullSlug,
   data: ContentData,
@@ -101,17 +106,26 @@ export async function tableEventPairs(
     if ((r.kind !== "news" && r.kind !== "scoop") || seen.has(r.id)) continue
     seen.add(r.id)
     const eventId = r.id
+    // 이 사건으로 이어지는 두 사람: 관련 인물끼리 + 나희정과 직접 전해 준 사람 (같은 쌍은 한 번만)
+    const rowPairs = new Map<string, [SimpleSlug, SimpleSlug]>()
     const involved = [...r.related].filter(isParticipant)
     for (let i = 0; i < involved.length; i++) {
       for (let j = i + 1; j < involved.length; j++) {
-        const key = pairKey(involved[i], involved[j])
-        const pair = pairs.get(key)
-        if (pair) {
-          pair.weight++
-          pair.events.push(eventId)
-        } else {
-          pairs.set(key, { source: involved[i], target: involved[j], weight: 1, events: [eventId] })
-        }
+        rowPairs.set(pairKey(involved[i], involved[j]), [involved[i], involved[j]])
+      }
+    }
+    if (isParticipant(ME)) {
+      for (const s of r.sources) {
+        if (s !== ME && isParticipant(s)) rowPairs.set(pairKey(ME, s), [ME, s])
+      }
+    }
+    for (const [key, [a, b]] of rowPairs) {
+      const pair = pairs.get(key)
+      if (pair) {
+        pair.weight++
+        pair.events.push(eventId)
+      } else {
+        pairs.set(key, { source: a, target: b, weight: 1, events: [eventId] })
       }
     }
   }
@@ -228,7 +242,7 @@ document.addEventListener("bn-content-updated", () => dayPageCache.clear())
 function defaultHead(): HTMLElement {
   const thead = document.createElement("thead")
   const tr = document.createElement("tr")
-  for (const h of ["", "시간", "사건", "요약", "관련 인물"]) {
+  for (const h of ["", "시간", "사건", "요약", "관련 인물", "입수 경로"]) {
     const th = document.createElement("th")
     th.textContent = h
     tr.append(th)
@@ -240,7 +254,7 @@ function defaultHead(): HTMLElement {
 // 일지 표에서 행을 못 찾은 사건: 사건 노트에서 아는 정보(취재가치·제목·요약)로 같은 칸 구성의 행을 만든다
 function fallbackRow(details: ContentDetails | undefined, href: string): HTMLElement {
   const tr = document.createElement("tr")
-  const cells = Array.from({ length: 5 }, () => document.createElement("td"))
+  const cells = Array.from({ length: 6 }, () => document.createElement("td"))
   const scoop = (details?.tags ?? []).includes("특종")
   const icon = document.createElement("span")
   icon.className = scoop ? "bn-lv-scoop" : "bn-lv-news"
@@ -263,6 +277,8 @@ type DayRow = {
   kind: "daily" | "news" | "scoop" | "event"
   // '관련 인물' 칸의 인물·세력
   related: Set<SimpleSlug>
+  // '입수 경로' 칸이 인물 링크로만 되어 있으면 그 인물들 (나희정에게 직접 전해 준 사람). 직접·기사·SNS 등이면 빈 배열
+  sources: SimpleSlug[]
   // 링크를 절대 주소로 고친 행 복사본
   row: Element
 }
@@ -278,6 +294,14 @@ async function readDayTables(
     [...(cell?.querySelectorAll<HTMLElement>("a[data-slug]") ?? [])].map((el) =>
       resolveLink(simplifySlug(el.dataset.slug as FullSlug)),
     )
+  // '입수 경로' 칸: 링크 말고 다른 글자(직접·기사·SNS 등)가 없을 때만 그 링크들을 직접 전해 준 사람으로 본다
+  const directSources = (cell?: Element): SimpleSlug[] => {
+    if (!cell) return []
+    const rest = cell.cloneNode(true) as Element
+    rest.querySelectorAll("a").forEach((a) => a.remove())
+    if ((rest.textContent ?? "").replace(/[\s,·]/g, "") !== "") return []
+    return slugsIn(cell)
+  }
   const days = [...data.keys()]
     .map((id) => ({ id, n: Number(id.match(/^01-일지\/(\d+)일차$/)?.[1] ?? NaN) }))
     .filter((d) => !Number.isNaN(d.n))
@@ -292,6 +316,7 @@ async function readDayTables(
     const heads = [...table.querySelectorAll("thead th")].map((th) => th.textContent ?? "")
     const eventCol = heads.findIndex((h) => h.includes("사건"))
     const relatedCol = heads.findIndex((h) => h.includes("관련"))
+    const sourceCol = heads.findIndex((h) => h.includes("입수"))
     if (eventCol < 0 || relatedCol < 0) continue
     thead ??= table.querySelector("thead")
     for (const tr of table.querySelectorAll("tbody tr")) {
@@ -310,7 +335,13 @@ async function readDayTables(
       row.querySelectorAll("a[href]").forEach((a) => {
         a.setAttribute("href", new URL(a.getAttribute("href")!, dayUrl).toString())
       })
-      rows.push({ id, kind, related: new Set(slugsIn(cells[relatedCol])), row })
+      rows.push({
+        id,
+        kind,
+        related: new Set(slugsIn(cells[relatedCol])),
+        sources: directSources(cells[sourceCol]),
+        row,
+      })
     }
   }
   return { thead, rows }
