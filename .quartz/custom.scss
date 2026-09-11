@@ -23,6 +23,15 @@
     // 탐색기와 본문 사이 옅은 경계선
     border-right: 1px solid var(--lightgray);
   }
+
+  // 경계선과 본문(제목·본문·바닥글) 사이 여백
+  .page > #quartz-body .page-header,
+  .page > #quartz-body .center,
+  .page > #quartz-body footer {
+    padding-left: 2.5rem;
+    padding-right: 2rem;
+    box-sizing: border-box;
+  }
 }
 
 // ── 봉누도2: Notion 스타일 (getdesign.md의 Notion DESIGN.md 참고) ──
