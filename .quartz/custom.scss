@@ -1,0 +1,19 @@
+@use "./base.scss";
+
+// 봉누도2: 취재가치별 표 행 배경 (볼트의 publish.css, .obsidian/snippets/bongnudo-rows.css와 같은 규칙)
+
+// 📰 사건 — 아주 옅은 초록
+tr:has(.bn-lv-news) > td {
+  background-color: rgba(80, 200, 120, 0.1) !important;
+}
+
+// 🔥 특종 — 옅은 빨강
+tr:has(.bn-lv-scoop) > td {
+  background-color: rgba(255, 80, 60, 0.12) !important;
+}
+
+// 칸 안쪽 요소가 배경을 덮지 않게
+tr:has(.bn-lv-news) > td *,
+tr:has(.bn-lv-scoop) > td * {
+  background-color: transparent !important;
+}

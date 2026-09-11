@@ -1,0 +1,73 @@
+name: Deploy site
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout notes
+        uses: actions/checkout@v4
+        with:
+          path: notes
+
+      - name: Checkout Quartz v4.5.2
+        uses: actions/checkout@v4
+        with:
+          repository: jackyzha0/quartz
+          ref: v4.5.2
+          path: quartz
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Quartz
+        working-directory: quartz
+        run: npm ci
+
+      - name: Prepare content and config
+        run: |
+          rm -rf quartz/content
+          mkdir -p quartz/content
+          rsync -a \
+            --exclude '.git' --exclude '.github' --exclude '.quartz' --exclude '.obsidian' \
+            --exclude 'CLAUDE.md' --exclude '99 템플릿' --exclude 'publish.css' --exclude '.gitignore' \
+            notes/ quartz/content/
+          cp notes/.quartz/index.md quartz/content/index.md
+          cp notes/.quartz/quartz.config.ts quartz/quartz.config.ts
+          cp notes/.quartz/quartz.layout.ts quartz/quartz.layout.ts
+          cp notes/.quartz/custom.scss quartz/quartz/styles/custom.scss
+
+      - name: Build
+        working-directory: quartz
+        run: npx quartz build
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: quartz/public
+
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
