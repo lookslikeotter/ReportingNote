@@ -77,6 +77,8 @@ type TweenNode = {
 
 async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   const slug = simplifySlug(fullSlug)
+  // 페이지를 옮겨도 그래프를 다시 그리지 않으므로, 노드 클릭 링크는 지금 페이지 기준으로 계산한다
+  let currentFullSlug = fullSlug
   const visited = getVisited()
   removeAllChildren(graph)
   // 글꼴을 다 불러온 뒤에 그려야 이름표가 대체 글꼴로 그려지지 않는다
@@ -463,7 +465,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
           // if the time between mousedown and mouseup is short, we consider it a click
           if (Date.now() - dragStartTime < 500) {
             const node = graphData.nodes.find((n) => n.id === event.subject.id) as NodeData
-            const targ = resolveRelative(fullSlug, node.id)
+            const targ = resolveRelative(currentFullSlug, node.id)
             window.spaNavigate(new URL(targ, window.location.toString()))
           }
         }),
@@ -471,7 +473,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   } else {
     for (const node of nodeRenderData) {
       node.gfx.on("click", () => {
-        const targ = resolveRelative(fullSlug, node.simulationData.id)
+        const targ = resolveRelative(currentFullSlug, node.simulationData.id)
         window.spaNavigate(new URL(targ, window.location.toString()))
       })
     }
@@ -545,20 +547,45 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   }
 
   requestAnimationFrame(animate)
-  return () => {
-    stopAnimation = true
-    app.destroy()
+
+  // 페이지를 옮기면 그래프는 그대로 두고 '지금 페이지' 테두리만 옮긴다
+  function setCurrent(newFullSlug: FullSlug) {
+    currentFullSlug = newFullSlug
+    const cur = simplifySlug(newFullSlug)
+    for (const n of nodeRenderData) {
+      const r = nodeRadius(n.simulationData)
+      n.gfx.clear().circle(0, 0, r).fill({ color: color(n.simulationData) })
+      if (n.simulationData.id === cur) {
+        n.gfx.stroke({ width: 2, color: computedStyleMap["--secondary"] })
+      }
+    }
+  }
+
+  return {
+    canvas: app.canvas as HTMLCanvasElement,
+    setCurrent,
+    cleanup: () => {
+      stopAnimation = true
+      app.destroy()
+    },
   }
 }
 
-let peopleGraphCleanups: (() => void)[] = []
+// 사이드바 인물 그래프는 한 번 그린 것을 계속 쓴다 (페이지 이동 때 다시 그리지 않음).
+// 크기가 바뀌거나 테마가 바뀔 때만 새로 그린다.
+type PersistentGraph = {
+  canvas: HTMLCanvasElement
+  setCurrent: (slug: FullSlug) => void
+  cleanup: () => void
+  width: number
+  height: number
+}
+let persistentPeopleGraph: PersistentGraph | null = null
 let peopleGlobalGraphCleanups: (() => void)[] = []
 
-function cleanupPeopleGraphs() {
-  for (const cleanup of peopleGraphCleanups) {
-    cleanup()
-  }
-  peopleGraphCleanups = []
+function destroyPersistentPeopleGraph() {
+  persistentPeopleGraph?.cleanup()
+  persistentPeopleGraph = null
 }
 
 function cleanupPeopleGlobalGraphs() {
@@ -571,23 +598,36 @@ function cleanupPeopleGlobalGraphs() {
 document.addEventListener("nav", async (e: CustomEventMap["nav"]) => {
   const slug = e.detail.url
 
-  async function renderPeopleGraphs() {
-    cleanupPeopleGraphs()
-    const containers = document.getElementsByClassName("people-graph-container")
-    for (const container of containers) {
-      peopleGraphCleanups.push(await renderGraph(container as HTMLElement, slug))
+  async function renderPeopleGraphs(force = false) {
+    const container = document.querySelector(".people-graph-container") as HTMLElement | null
+    if (!container) return
+    const width = container.offsetWidth
+    const height = Math.max(container.offsetHeight, 250)
+
+    // 이미 그려 둔 그래프가 있고 크기가 같으면: 그대로 다시 붙이고 '지금 페이지' 표시만 옮긴다
+    const kept = persistentPeopleGraph
+    if (!force && kept && kept.width === width && kept.height === height) {
+      if (kept.canvas.parentElement !== container) {
+        removeAllChildren(container)
+        container.appendChild(kept.canvas)
+      }
+      kept.setCurrent(slug)
+      return
     }
+
+    destroyPersistentPeopleGraph()
+    const rendered = await renderGraph(container, slug)
+    persistentPeopleGraph = { ...rendered, width, height }
   }
 
   await renderPeopleGraphs()
   const handleThemeChange = () => {
-    void renderPeopleGraphs()
+    void renderPeopleGraphs(true)
   }
 
   document.addEventListener("themechange", handleThemeChange)
   window.addCleanup(() => {
     document.removeEventListener("themechange", handleThemeChange)
-    cleanupPeopleGraphs()
   })
 
   // 오른쪽 위 버튼: 인물 그래프 크게 보기 (Esc나 바깥 클릭으로 닫기)
@@ -606,7 +646,7 @@ document.addEventListener("nav", async (e: CustomEventMap["nav"]) => {
       const container = outer.querySelector(".people-global-graph-container") as HTMLElement
       registerEscapeHandler(outer, hidePeopleGlobalGraph)
       if (container) {
-        peopleGlobalGraphCleanups.push(await renderGraph(container, slug))
+        peopleGlobalGraphCleanups.push((await renderGraph(container, slug)).cleanup)
       }
     }
   }
