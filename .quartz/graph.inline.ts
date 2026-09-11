@@ -27,6 +27,13 @@ import { D3Config } from "../Graph"
 //   - 처음부터 INITIAL_ZOOM 배율로 확대해서 시작한다
 const INITIAL_ZOOM = 1.5
 
+// 봉누도2: 사이드바 그래프에는 정보 노드(인물·세력·장소)만 남긴다. 목록·일지·사건·서버 정보 등은 뺀다.
+const INFO_PREFIXES = ["02-인물/", "03-세력/", "04-장소/"]
+const INFO_EXCLUDE = ["02-인물/인물-목록", "03-세력/세력-목록"]
+function isInfoNode(id: string) {
+  return INFO_PREFIXES.some((p) => id.startsWith(p)) && !INFO_EXCLUDE.includes(id)
+}
+
 type GraphicsInfo = {
   color: string
   gfx: Graphics
@@ -149,6 +156,13 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   } else {
     validLinks.forEach((id) => neighbourhood.add(id))
     if (showTags) tags.forEach((tag) => neighbourhood.add(tag))
+  }
+
+  // 봉누도2: 사이드바 그래프는 정보 노드만 (전체 화면 전역 그래프는 그대로)
+  if (!isGlobal) {
+    for (const id of [...neighbourhood]) {
+      if (!isInfoNode(id)) neighbourhood.delete(id)
+    }
   }
 
   const nodes = [...neighbourhood].map((url) => {
