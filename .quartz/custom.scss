@@ -216,6 +216,11 @@ td > code {
   margin-top: 0.6rem;
 }
 
+// 마지막 폴더(취재·기사)와 맨 위 파일들(서버 정보·취재 노트) 사이 간격
+.explorer .explorer-ul > li:has(> .folder-container) + li:not(:has(> .folder-container)) {
+  margin-top: 0.8rem;
+}
+
 // 봉누도2: 오른쪽 사이드바 그래프 2개 — 제목 숨김, 크게
 .graph > h3 {
   display: none;
