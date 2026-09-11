@@ -271,7 +271,7 @@ document.addEventListener("bn-content-updated", () => dayPageCache.clear())
 function defaultHead(): HTMLElement {
   const thead = document.createElement("thead")
   const tr = document.createElement("tr")
-  for (const h of ["", "시간", "사건", "요약", "관련 인물", "입수 경로"]) {
+  for (const h of ["시간", "사건", "요약", "관련 인물", "입수 경로"]) {
     const th = document.createElement("th")
     th.textContent = h
     tr.append(th)
@@ -283,17 +283,16 @@ function defaultHead(): HTMLElement {
 // 일지 표에서 행을 못 찾은 사건: 사건 노트에서 아는 정보(취재가치·제목·요약)로 같은 칸 구성의 행을 만든다
 function fallbackRow(details: ContentDetails | undefined, href: string): HTMLElement {
   const tr = document.createElement("tr")
-  const cells = Array.from({ length: 6 }, () => document.createElement("td"))
-  const scoop = (details?.tags ?? []).includes("특종")
-  const icon = document.createElement("span")
-  icon.className = scoop ? "bn-lv-scoop" : "bn-lv-news"
-  icon.textContent = scoop ? "🔥" : "📰"
-  cells[0].append(icon)
+  const cells = Array.from({ length: 5 }, () => document.createElement("td"))
+  // 시간 칸에 등급 이름표 (행 배경색). 시간은 알 수 없어 비워 둔다
+  const grade = document.createElement("span")
+  grade.className = (details?.tags ?? []).includes("특종") ? "bn-lv-scoop" : "bn-lv-news"
+  cells[0].append(grade)
   const a = document.createElement("a")
   a.href = href
   a.textContent = (details?.title ?? "").replace(/^\d+일차-\d+\s+/, "")
-  cells[2].append(a)
-  cells[3].textContent = eventSummary(details)
+  cells[1].append(a)
+  cells[2].textContent = eventSummary(details)
   tr.append(...cells)
   return tr
 }
@@ -302,7 +301,7 @@ function fallbackRow(details: ContentDetails | undefined, href: string): HTMLEle
 type DayRow = {
   // 행의 사건·이벤트 노트
   id: SimpleSlug
-  // 맨 왼쪽 칸 이모지: ☕ daily · 📰 news · 🔥 scoop · 📅 event
+  // 행의 등급 이름표(bn-lv-*): 없음 daily(☕) · news(📰) · scoop(🔥) · event(📅)
   kind: "daily" | "news" | "scoop" | "event"
   // '관련 인물' 칸의 인물·세력
   related: Set<SimpleSlug>
@@ -352,12 +351,12 @@ async function readDayTables(
       const cells = tr.querySelectorAll("td")
       const id = slugsIn(cells[eventCol])[0]
       if (!id) continue
-      const first = cells[0]
-      const kind = first?.querySelector(".bn-lv-scoop")
+      // 등급 이름표(bn-lv-*)는 행 안 어디에 있어도 된다 (지금은 시간 칸)
+      const kind = tr.querySelector(".bn-lv-scoop")
         ? "scoop"
-        : first?.querySelector(".bn-lv-news")
+        : tr.querySelector(".bn-lv-news")
           ? "news"
-          : first?.querySelector(".bn-lv-event")
+          : tr.querySelector(".bn-lv-event")
             ? "event"
             : "daily"
       const row = document.importNode(tr, true)

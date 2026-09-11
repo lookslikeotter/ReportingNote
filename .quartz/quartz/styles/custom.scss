@@ -431,8 +431,50 @@ tr:has(.bn-lv-event) > td * {
 }
 
 // 링크 미리보기 창에는 보이지 않게
-.popover .bn-refresh {
+.popover .bn-refresh,
+.popover .bn-legend {
   display: none;
+}
+
+// 봉누도2: 일지·사건 목록 제목 오른쪽 색 안내 (DayLegend.tsx). 제목과 한 줄, 좁으면 아래 줄로
+.page-header > .popover-hint:has(> .bn-legend) > .article-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.bn-legend {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.9rem;
+  font-size: 13px;
+  color: var(--darkgray);
+
+  & .bn-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  // 색 견본: 표 행 배경과 같은 색
+  & .bn-swatch {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    border: 1px solid var(--lightgray);
+
+    &.news {
+      background-color: rgba(80, 200, 120, 0.1);
+    }
+    &.scoop {
+      background-color: rgba(255, 80, 60, 0.12);
+    }
+    &.event {
+      background-color: rgba(128, 128, 128, 0.12);
+    }
+  }
 }
 
 // 봉누도2: 그래프 선을 누르면 뜨는 창 (함께 엮인 사건 목록 등)

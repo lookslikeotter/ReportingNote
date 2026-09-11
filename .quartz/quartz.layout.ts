@@ -4,6 +4,7 @@ import ExplorerDefaults from "./quartz/components/ExplorerDefaults"
 import PeopleGraph from "./quartz/components/PeopleGraph"
 import FontLoader from "./quartz/components/FontLoader"
 import RefreshButton from "./quartz/components/RefreshButton"
+import DayLegend from "./quartz/components/DayLegend"
 
 // 봉누도2 — 원본은 볼트의 .quartz/quartz.layout.ts. GitHub Actions가 빌드 때 Quartz에 덮어쓴다.
 // 실제 날짜가 보이지 않도록 ContentMeta(수정일·읽는 시간)는 넣지 않는다.
@@ -42,6 +43,8 @@ export const defaultContentPageLayout: PageLayout = {
       condition: (page) => page.fileData.slug !== "index",
     }),
     Component.ArticleTitle(),
+    // 일지·사건 목록 페이지에서만 제목 오른쪽에 표 색 안내
+    DayLegend(),
     Component.TagList(),
   ],
   left: [
