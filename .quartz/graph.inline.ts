@@ -47,6 +47,81 @@ const RELATION_STYLES: Record<string, { color: string; width: number; distance: 
   경쟁: { color: "#dd5b00", width: 2, distance: 1.8 },
   적대: { color: "#e03131", width: 3, distance: 2.6 },
 }
+
+// 봉누도2: 선을 눌렀을 때 뜨는 창 (두 인물이 함께 엮인 사건 목록 등). Esc나 바깥을 누르면 닫힌다.
+type EdgePopupItem = { icon: string; label: string; desc?: string; href?: string }
+
+// 사건 노트 본문 '개요' 첫 줄을 요약으로 쓴다
+function eventSummary(details: ContentDetails | undefined): string {
+  const m = (details?.content ?? "").match(/개요\s*\n+\s*([^\n]+)/)
+  return (m?.[1] ?? "").trim()
+}
+
+// "1일차-03 표민수의 너구리 살해" → "1일차 · 표민수의 너구리 살해"
+function eventLabel(title: string): string {
+  return title.replace(/^(\d+일차)-\d+\s+/, "$1 · ")
+}
+
+// 일차·순번으로 정렬하기 위한 값
+function eventOrder(title: string): number {
+  const m = title.match(/^(\d+)일차-(\d+)/)
+  return m ? Number(m[1]) * 1000 + Number(m[2]) : 0
+}
+
+function showEdgePopup(title: string, subtitle: string, items: EdgePopupItem[]) {
+  document.querySelector(".bn-edge-popup")?.remove()
+  const outer = document.createElement("div")
+  outer.className = "bn-edge-popup"
+  const card = document.createElement("div")
+  card.className = "bn-edge-card"
+  const head = document.createElement("div")
+  head.className = "bn-edge-title"
+  head.textContent = title
+  const sub = document.createElement("div")
+  sub.className = "bn-edge-subtitle"
+  sub.textContent = subtitle
+  card.append(head, sub)
+
+  const list = document.createElement("ul")
+  list.className = "bn-edge-list"
+  for (const it of items) {
+    const li = document.createElement("li")
+    const label = document.createElement(it.href ? "a" : "span")
+    label.className = "bn-edge-item"
+    label.textContent = `${it.icon} ${it.label}`
+    if (it.href) {
+      ;(label as HTMLAnchorElement).href = it.href
+      label.addEventListener("click", (e) => {
+        e.preventDefault()
+        close()
+        window.spaNavigate(new URL(it.href!, window.location.toString()))
+      })
+    }
+    li.append(label)
+    if (it.desc) {
+      const desc = document.createElement("div")
+      desc.className = "bn-edge-desc"
+      desc.textContent = it.desc
+      li.append(desc)
+    }
+    list.append(li)
+  }
+  card.append(list)
+  outer.append(card)
+  document.body.append(outer)
+
+  function onKey(e: KeyboardEvent) {
+    if (e.key === "Escape") close()
+  }
+  function close() {
+    outer.remove()
+    document.removeEventListener("keydown", onKey)
+  }
+  outer.addEventListener("click", (e) => {
+    if (e.target === outer) close()
+  })
+  document.addEventListener("keydown", onKey)
+}
 function isInfoNode(id: string) {
   return INFO_PREFIXES.some((p) => id.startsWith(p)) && !INFO_EXCLUDE.includes(id)
 }
@@ -73,6 +148,8 @@ type SimpleLinkData = {
   weight?: number
   // 봉누도2: 세력 관계 선 (동맹·협력·경쟁·적대)
   relation?: string
+  // 봉누도2: 사건 인연 선을 만든 사건 노트들 (선을 누르면 목록으로 보여 줌)
+  events?: SimpleSlug[]
 }
 
 type LinkData = {
@@ -81,6 +158,7 @@ type LinkData = {
   member?: boolean
   weight?: number
   relation?: string
+  events?: SimpleSlug[]
 } & SimulationLinkDatum<NodeData>
 
 type LinkRenderData = GraphicsInfo & {
@@ -266,7 +344,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   // 같은 두 노드 사이에 둘 다 있으면 소속 선만 그린다.
   const EVENT_TAGS = ["사건", "특종"]
   const eventWeight = new Map<string, SimpleLinkData>()
-  for (const [, details] of data.entries()) {
+  for (const [eventId, details] of data.entries()) {
     if (!(details.tags ?? []).some((t) => EVENT_TAGS.includes(t))) continue
     // 사건 인연 선은 인물끼리만 잇는다. 사건 노트에 소속 설명으로 링크된 세력·장소는 사건 당사자로 보지 않는다
     // (세력과 인물은 소속 점선으로만 이어진다).
@@ -283,8 +361,14 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         const entry = eventWeight.get(key)
         if (entry) {
           entry.weight = (entry.weight ?? 1) + 1
+          entry.events?.push(eventId)
         } else {
-          eventWeight.set(key, { source: involved[i], target: involved[j], weight: 1 })
+          eventWeight.set(key, {
+            source: involved[i],
+            target: involved[j],
+            weight: 1,
+            events: [eventId],
+          })
         }
       }
     }
@@ -306,6 +390,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         member: l.member ?? false,
         weight: l.weight ?? 1,
         relation: l.relation,
+        events: l.events,
       })),
   }
 
@@ -378,6 +463,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   }
 
   let hoveredNodeId: string | null = null
+  // 봉누도2: 마우스가 올라가 있는 선 (선 하이라이트·클릭용)
+  let hoveredLink: LinkRenderData | null = null
   let hoveredNeighbours: Set<string> = new Set()
   const linkRenderData: LinkRenderData[] = []
   const nodeRenderData: NodeRenderData[] = []
@@ -425,6 +512,9 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       // with full alpha and the rest with default alpha
       if (hoveredNodeId) {
         alpha = l.active ? 1 : 0.2
+      } else if (hoveredLink) {
+        // 봉누도2: 선에 마우스를 올리면 그 선만 또렷하게
+        alpha = l === hoveredLink ? 1 : 0.2
       }
 
       // 봉누도2: 소속 선은 항상 진하게, 사건 인연 선은 중간 진하기(마우스를 올리면 진하게)
@@ -432,7 +522,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         ? (RELATION_STYLES[l.simulationData.relation]?.color ?? computedStyleMap["--gray"])
         : l.simulationData.member
           ? computedStyleMap["--darkgray"]
-          : l.active
+          : l.active || l === hoveredLink
             ? computedStyleMap["--darkgray"]
             : computedStyleMap["--gray"]
       tweenGroup.add(new Tweened<LinkRenderData>(l).to({ alpha }, 200))
@@ -499,6 +589,11 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       // if we are hovering over a node, we want to highlight the immediate neighbours
       if (hoveredNodeId !== null && focusOnHover) {
         alpha = n.active ? 1 : 0.2
+      } else if (hoveredNodeId === null && hoveredLink) {
+        // 봉누도2: 선에 마우스를 올리면 양 끝 두 노드만 또렷하게
+        const ld = hoveredLink.simulationData
+        const id = n.simulationData.id
+        alpha = id === ld.source.id || id === ld.target.id ? 1 : 0.2
       }
 
       tweenGroup.add(new Tweened<Graphics>(n.gfx, tweenGroup).to({ alpha }, 200))
@@ -714,6 +809,91 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     }
   }
 
+  // 봉누도2: 선 위에 마우스를 올리면 하이라이트, 누르면 관련 창을 띄운다.
+  // 선은 마우스에 반응하지 않는 그림이라, 마우스 위치에서 가장 가까운 선을 직접 계산한다 (화면 기준 6px 안).
+  const LINK_HIT_PX = 6
+  function linkAt(px: number, py: number): LinkRenderData | null {
+    const k = currentTransform.k
+    const wx = (px - currentTransform.x) / k
+    const wy = (py - currentTransform.y) / k
+    let best: LinkRenderData | null = null
+    let bestDist = LINK_HIT_PX / k
+    for (const l of linkRenderData) {
+      const s = l.simulationData.source
+      const t = l.simulationData.target
+      if (s.x === undefined || s.y === undefined || t.x === undefined || t.y === undefined) continue
+      const x1 = s.x + width / 2
+      const y1 = s.y + height / 2
+      const dx = t.x + width / 2 - x1
+      const dy = t.y + height / 2 - y1
+      const len2 = dx * dx + dy * dy
+      const u = len2 > 0 ? Math.max(0, Math.min(1, ((wx - x1) * dx + (wy - y1) * dy) / len2)) : 0
+      const dist = Math.hypot(wx - (x1 + u * dx), wy - (y1 + u * dy))
+      if (dist < bestDist) {
+        bestDist = dist
+        best = l
+      }
+    }
+    return best
+  }
+
+  function setHoveredLink(l: LinkRenderData | null) {
+    if (l === hoveredLink) return
+    hoveredLink = l
+    app.canvas.style.cursor = l ? "pointer" : ""
+    renderPixiFromD3()
+  }
+
+  function openLinkPopup(ld: LinkData) {
+    const a = ld.source
+    const b = ld.target
+    const title = `${a.text} ─ ${b.text}`
+    const href = (id: string) => resolveRelative(fullSlug, id as SimpleSlug)
+    if (ld.member) {
+      const person = a.id.startsWith("02-인물/") ? a : b
+      const org = person === a ? b : a
+      showEdgePopup(title, "소속 관계", [
+        { icon: "👤", label: person.text, desc: `${org.text} 소속`, href: href(person.id) },
+        { icon: "🏛️", label: org.text, href: href(org.id) },
+      ])
+    } else if (ld.relation) {
+      showEdgePopup(title, `세력 관계 · ${ld.relation}`, [
+        { icon: "🏛️", label: a.text, desc: "근거는 세력 노트의 '세력 관계' 섹션", href: href(a.id) },
+        { icon: "🏛️", label: b.text, href: href(b.id) },
+      ])
+    } else {
+      const events = [...(ld.events ?? [])].sort(
+        (x, y) => eventOrder(data.get(x)?.title ?? "") - eventOrder(data.get(y)?.title ?? ""),
+      )
+      showEdgePopup(
+        title,
+        `함께 엮인 사건 ${events.length}건`,
+        events.map((id) => {
+          const d = data.get(id)
+          return {
+            icon: (d?.tags ?? []).includes("특종") ? "🔥" : "📰",
+            label: eventLabel(d?.title ?? id),
+            desc: eventSummary(d),
+            href: href(id),
+          }
+        }),
+      )
+    }
+  }
+
+  app.canvas.addEventListener("pointermove", (e) => {
+    if (dragging || hoveredNodeId !== null) {
+      setHoveredLink(null)
+      return
+    }
+    setHoveredLink(linkAt(e.offsetX, e.offsetY))
+  })
+  app.canvas.addEventListener("pointerleave", () => setHoveredLink(null))
+  app.canvas.addEventListener("click", () => {
+    if (hoveredNodeId !== null || !hoveredLink) return
+    openLinkPopup(hoveredLink.simulationData)
+  })
+
   let stopAnimation = false
   function animate(time: number) {
     if (stopAnimation) return
@@ -750,7 +930,11 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
             const e = Math.min(d + dash, len)
             l.gfx.moveTo(x1 + ux * d, y1 + uy * d).lineTo(x1 + ux * e, y1 + uy * e)
           }
-          l.gfx.stroke({ alpha: l.alpha, width: 1.5, color: l.color })
+          l.gfx.stroke({
+            alpha: l.alpha,
+            width: 1.5 + (l === hoveredLink ? 1.5 : 0),
+            color: l.color,
+          })
         }
       } else {
         // 봉누도2: 사건 인연 선은 실선, 함께 엮인 사건 수에 따라 1.8px ~ 최대 4px
@@ -760,9 +944,11 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
           .stroke({
             alpha: l.alpha,
             // 세력 관계 선은 관계별 두께, 사건 인연 선은 사건 수에 따라 굵게
-            width: linkData.relation
-              ? (RELATION_STYLES[linkData.relation]?.width ?? 2)
-              : Math.min(1 + 0.8 * (linkData.weight ?? 1), 4),
+            width:
+              (linkData.relation
+                ? (RELATION_STYLES[linkData.relation]?.width ?? 2)
+                : Math.min(1 + 0.8 * (linkData.weight ?? 1), 4)) +
+              (l === hoveredLink ? 1.5 : 0),
             color: l.color,
           })
       }

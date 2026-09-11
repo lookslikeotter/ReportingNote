@@ -348,3 +348,70 @@ tr:has(.bn-lv-news) > td *,
 tr:has(.bn-lv-scoop) > td * {
   background-color: transparent !important;
 }
+
+// 봉누도2: 그래프 선을 누르면 뜨는 창 (함께 엮인 사건 목록 등)
+.bn-edge-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  background-color: rgba(0, 0, 0, 0.15);
+}
+
+.bn-edge-card {
+  background-color: var(--light);
+  border: 1px solid var(--lightgray);
+  border-radius: 12px;
+  box-shadow: rgba(15, 15, 15, 0.16) 0px 16px 48px -8px;
+  padding: 1.2rem 1.4rem;
+  width: min(480px, 90vw);
+  max-height: 70vh;
+  overflow-y: auto;
+  font-family: var(--bodyFont);
+}
+
+.bn-edge-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--dark);
+}
+
+.bn-edge-subtitle {
+  font-size: 13px;
+  color: var(--gray);
+  margin: 0.2rem 0 0.8rem;
+}
+
+.bn-edge-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  & li {
+    padding: 0.5rem 0.6rem;
+    border-radius: 8px;
+
+    & + li {
+      border-top: 1px solid var(--lightgray);
+    }
+  }
+}
+
+.bn-edge-item {
+  font-weight: 600;
+  color: var(--dark);
+  text-decoration: none;
+}
+
+a.bn-edge-item:hover {
+  color: var(--secondary);
+}
+
+.bn-edge-desc {
+  font-size: 13px;
+  color: var(--darkgray);
+  margin-top: 0.2rem;
+}

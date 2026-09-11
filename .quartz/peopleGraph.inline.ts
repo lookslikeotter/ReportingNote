@@ -30,6 +30,81 @@ const CATEGORY_COLORS: [string, string][] = [
   ["기관", "#0075de"],
   ["시민", "#1aae39"],
 ]
+
+// 선을 눌렀을 때 뜨는 창 (두 인물이 함께 엮인 사건 목록). Esc나 바깥을 누르면 닫힌다.
+type EdgePopupItem = { icon: string; label: string; desc?: string; href?: string }
+
+// 사건 노트 본문 '개요' 첫 줄을 요약으로 쓴다
+function eventSummary(details: ContentDetails | undefined): string {
+  const m = (details?.content ?? "").match(/개요\s*\n+\s*([^\n]+)/)
+  return (m?.[1] ?? "").trim()
+}
+
+// "1일차-03 표민수의 너구리 살해" → "1일차 · 표민수의 너구리 살해"
+function eventLabel(title: string): string {
+  return title.replace(/^(\d+일차)-\d+\s+/, "$1 · ")
+}
+
+// 일차·순번으로 정렬하기 위한 값
+function eventOrder(title: string): number {
+  const m = title.match(/^(\d+)일차-(\d+)/)
+  return m ? Number(m[1]) * 1000 + Number(m[2]) : 0
+}
+
+function showEdgePopup(title: string, subtitle: string, items: EdgePopupItem[]) {
+  document.querySelector(".bn-edge-popup")?.remove()
+  const outer = document.createElement("div")
+  outer.className = "bn-edge-popup"
+  const card = document.createElement("div")
+  card.className = "bn-edge-card"
+  const head = document.createElement("div")
+  head.className = "bn-edge-title"
+  head.textContent = title
+  const sub = document.createElement("div")
+  sub.className = "bn-edge-subtitle"
+  sub.textContent = subtitle
+  card.append(head, sub)
+
+  const list = document.createElement("ul")
+  list.className = "bn-edge-list"
+  for (const it of items) {
+    const li = document.createElement("li")
+    const label = document.createElement(it.href ? "a" : "span")
+    label.className = "bn-edge-item"
+    label.textContent = `${it.icon} ${it.label}`
+    if (it.href) {
+      ;(label as HTMLAnchorElement).href = it.href
+      label.addEventListener("click", (e) => {
+        e.preventDefault()
+        close()
+        window.spaNavigate(new URL(it.href!, window.location.toString()))
+      })
+    }
+    li.append(label)
+    if (it.desc) {
+      const desc = document.createElement("div")
+      desc.className = "bn-edge-desc"
+      desc.textContent = it.desc
+      li.append(desc)
+    }
+    list.append(li)
+  }
+  card.append(list)
+  outer.append(card)
+  document.body.append(outer)
+
+  function onKey(e: KeyboardEvent) {
+    if (e.key === "Escape") close()
+  }
+  function close() {
+    outer.remove()
+    document.removeEventListener("keydown", onKey)
+  }
+  outer.addEventListener("click", (e) => {
+    if (e.target === outer) close()
+  })
+  document.addEventListener("keydown", onKey)
+}
 // 처음에는 모든 인물이 한 화면에 들어오도록 배율을 자동으로 맞추고,
 // 확대·축소해도 이름표 글자 크기는 화면에서 그대로 유지한다.
 
@@ -51,12 +126,15 @@ type SimpleLinkData = {
   target: SimpleSlug
   // 사건 인연: 두 사람이 함께 엮인 📰 사건·🔥 특종의 수
   weight: number
+  // 그 사건 노트들 (선을 누르면 목록으로 보여 줌)
+  events: SimpleSlug[]
 }
 
 type LinkData = {
   source: NodeData
   target: NodeData
   weight: number
+  events: SimpleSlug[]
 } & SimulationLinkDatum<NodeData>
 
 type LinkRenderData = GraphicsInfo & {
@@ -134,7 +212,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   const EVENT_TAGS = ["사건", "특종"]
   const pairKey = (a: string, b: string) => (a < b ? a + "|" + b : b + "|" + a)
   const pairWeight = new Map<string, SimpleLinkData>()
-  for (const [, details] of data.entries()) {
+  for (const [eventId, details] of data.entries()) {
     if (!(details.tags ?? []).some((t) => EVENT_TAGS.includes(t))) continue
     const involved = [
       ...new Set((details.links ?? []).map(resolveLink).filter((d) => people.has(d))),
@@ -145,8 +223,14 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         const entry = pairWeight.get(key)
         if (entry) {
           entry.weight++
+          entry.events.push(eventId)
         } else {
-          pairWeight.set(key, { source: involved[i], target: involved[j], weight: 1 })
+          pairWeight.set(key, {
+            source: involved[i],
+            target: involved[j],
+            weight: 1,
+            events: [eventId],
+          })
         }
       }
     }
@@ -186,6 +270,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       source: nodes.find((n) => n.id === l.source)!,
       target: nodes.find((n) => n.id === l.target)!,
       weight: l.weight,
+      events: l.events,
     })),
   }
 
@@ -272,6 +357,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   }
 
   let hoveredNodeId: string | null = null
+  // 마우스가 올라가 있는 선 (선 하이라이트·클릭용)
+  let hoveredLink: LinkRenderData | null = null
   let hoveredNeighbours: Set<string> = new Set()
   const linkRenderData: LinkRenderData[] = []
   const nodeRenderData: NodeRenderData[] = []
@@ -317,10 +404,14 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
 
       if (hoveredNodeId) {
         alpha = l.active ? 1 : 0.2
+      } else if (hoveredLink) {
+        // 선에 마우스를 올리면 그 선만 또렷하게
+        alpha = l === hoveredLink ? 1 : 0.2
       }
 
       // 사건 인연 선은 의미 있는 선만 남으므로 기본보다 진하게, 마우스를 올리면 더 진하게
-      l.color = l.active ? computedStyleMap["--darkgray"] : computedStyleMap["--gray"]
+      l.color =
+        l.active || l === hoveredLink ? computedStyleMap["--darkgray"] : computedStyleMap["--gray"]
       tweenGroup.add(new Tweened<LinkRenderData>(l).to({ alpha }, 200))
     }
 
@@ -384,6 +475,11 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
 
       if (hoveredNodeId !== null && focusOnHover) {
         alpha = n.active ? 1 : 0.2
+      } else if (hoveredNodeId === null && hoveredLink) {
+        // 선에 마우스를 올리면 양 끝 두 인물만 또렷하게
+        const ld = hoveredLink.simulationData
+        const id = n.simulationData.id
+        alpha = id === ld.source.id || id === ld.target.id ? 1 : 0.2
       }
 
       tweenGroup.add(new Tweened<Graphics>(n.gfx, tweenGroup).to({ alpha }, 200))
@@ -637,6 +733,73 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     panToNode(slug)
   }
 
+  // 선 위에 마우스를 올리면 하이라이트, 누르면 두 인물이 함께 엮인 사건 목록 창을 띄운다.
+  // 선은 마우스에 반응하지 않는 그림이라, 마우스 위치에서 가장 가까운 선을 직접 계산한다 (화면 기준 6px 안).
+  const LINK_HIT_PX = 6
+  function linkAt(px: number, py: number): LinkRenderData | null {
+    const k = currentTransform.k
+    const wx = (px - currentTransform.x) / k
+    const wy = (py - currentTransform.y) / k
+    let best: LinkRenderData | null = null
+    let bestDist = LINK_HIT_PX / k
+    for (const l of linkRenderData) {
+      const s = l.simulationData.source
+      const t = l.simulationData.target
+      if (s.x === undefined || s.y === undefined || t.x === undefined || t.y === undefined) continue
+      const x1 = s.x + width / 2
+      const y1 = s.y + height / 2
+      const dx = t.x + width / 2 - x1
+      const dy = t.y + height / 2 - y1
+      const len2 = dx * dx + dy * dy
+      const u = len2 > 0 ? Math.max(0, Math.min(1, ((wx - x1) * dx + (wy - y1) * dy) / len2)) : 0
+      const dist = Math.hypot(wx - (x1 + u * dx), wy - (y1 + u * dy))
+      if (dist < bestDist) {
+        bestDist = dist
+        best = l
+      }
+    }
+    return best
+  }
+
+  function setHoveredLink(l: LinkRenderData | null) {
+    if (l === hoveredLink) return
+    hoveredLink = l
+    app.canvas.style.cursor = l ? "pointer" : ""
+    renderPixiFromD3()
+  }
+
+  function openLinkPopup(ld: LinkData) {
+    const events = [...ld.events].sort(
+      (x, y) => eventOrder(data.get(x)?.title ?? "") - eventOrder(data.get(y)?.title ?? ""),
+    )
+    showEdgePopup(
+      `${ld.source.text} ─ ${ld.target.text}`,
+      `함께 엮인 사건 ${events.length}건`,
+      events.map((id) => {
+        const d = data.get(id)
+        return {
+          icon: (d?.tags ?? []).includes("특종") ? "🔥" : "📰",
+          label: eventLabel(d?.title ?? id),
+          desc: eventSummary(d),
+          href: resolveRelative(currentFullSlug, id),
+        }
+      }),
+    )
+  }
+
+  app.canvas.addEventListener("pointermove", (e) => {
+    if (dragging || hoveredNodeId !== null) {
+      setHoveredLink(null)
+      return
+    }
+    setHoveredLink(linkAt(e.offsetX, e.offsetY))
+  })
+  app.canvas.addEventListener("pointerleave", () => setHoveredLink(null))
+  app.canvas.addEventListener("click", () => {
+    if (hoveredNodeId !== null || !hoveredLink) return
+    openLinkPopup(hoveredLink.simulationData)
+  })
+
   let stopAnimation = false
   function animate(time: number) {
     if (stopAnimation) return
@@ -658,7 +821,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         .stroke({
           alpha: l.alpha,
           // 함께 엮인 사건 수에 따라 굵게: 1건 1.8px, 2건 2.6px, 3건 3.4px, 최대 4px
-          width: Math.min(1 + 0.8 * l.simulationData.weight, 4),
+          width: Math.min(1 + 0.8 * l.simulationData.weight, 4) + (l === hoveredLink ? 1.5 : 0),
           color: l.color,
         })
     }
