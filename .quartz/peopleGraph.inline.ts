@@ -16,7 +16,7 @@ import {
 } from "d3"
 import { Text, Graphics, Application, Container, Circle } from "pixi.js"
 import { Group as TweenGroup, Tween as Tweened } from "@tweenjs/tween.js"
-import { removeAllChildren } from "./util"
+import { registerEscapeHandler, removeAllChildren } from "./util"
 import { FullSlug, SimpleSlug, resolveRelative, simplifySlug } from "../../util/path"
 import { D3Config } from "../Graph"
 
@@ -541,12 +541,20 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
 }
 
 let peopleGraphCleanups: (() => void)[] = []
+let peopleGlobalGraphCleanups: (() => void)[] = []
 
 function cleanupPeopleGraphs() {
   for (const cleanup of peopleGraphCleanups) {
     cleanup()
   }
   peopleGraphCleanups = []
+}
+
+function cleanupPeopleGlobalGraphs() {
+  for (const cleanup of peopleGlobalGraphCleanups) {
+    cleanup()
+  }
+  peopleGlobalGraphCleanups = []
 }
 
 document.addEventListener("nav", async (e: CustomEventMap["nav"]) => {
@@ -569,5 +577,47 @@ document.addEventListener("nav", async (e: CustomEventMap["nav"]) => {
   window.addCleanup(() => {
     document.removeEventListener("themechange", handleThemeChange)
     cleanupPeopleGraphs()
+  })
+
+  // 오른쪽 위 버튼: 인물 그래프 크게 보기 (Esc나 바깥 클릭으로 닫기)
+  const outers = [
+    ...document.getElementsByClassName("people-global-graph-outer"),
+  ] as HTMLElement[]
+
+  async function showPeopleGlobalGraph() {
+    for (const outer of outers) {
+      outer.classList.add("active")
+      const sidebar = outer.closest(".sidebar") as HTMLElement
+      if (sidebar) {
+        sidebar.style.zIndex = "1"
+      }
+
+      const container = outer.querySelector(".people-global-graph-container") as HTMLElement
+      registerEscapeHandler(outer, hidePeopleGlobalGraph)
+      if (container) {
+        peopleGlobalGraphCleanups.push(await renderGraph(container, slug))
+      }
+    }
+  }
+
+  function hidePeopleGlobalGraph() {
+    cleanupPeopleGlobalGraphs()
+    for (const outer of outers) {
+      outer.classList.remove("active")
+      const sidebar = outer.closest(".sidebar") as HTMLElement
+      if (sidebar) {
+        sidebar.style.zIndex = ""
+      }
+    }
+  }
+
+  const icons = document.getElementsByClassName("people-global-graph-icon")
+  Array.from(icons).forEach((icon) => {
+    icon.addEventListener("click", showPeopleGlobalGraph)
+    window.addCleanup(() => icon.removeEventListener("click", showPeopleGlobalGraph))
+  })
+
+  window.addCleanup(() => {
+    cleanupPeopleGlobalGraphs()
   })
 })
