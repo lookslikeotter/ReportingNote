@@ -37,6 +37,9 @@ const loadedCode = meta("bn-code")
 let pending: { build: string; code: string } | null = null
 let applying = false
 let toldBusy = false
+// 갱신에 실패하면(예: 캐시가 아직 옛 페이지를 줌) 이 시각까지 기다렸다가 다시 시도
+let retryAt = 0
+const RETRY_MS = 15_000
 log("자동 갱신 켜짐", currentBuild.slice(0, 7) || "(버전 표시 없음)")
 
 // 브라우저 캐시를 새 파일로 바꿔 둔다 (다음 불러오기 때 옛 파일을 쓰지 않게)
@@ -75,24 +78,40 @@ async function hardReload() {
   location.reload()
 }
 
+// 주소에 버전을 붙인다. GitHub Pages 앞단 캐시(CDN)는 배포 직후 잠시 옛 파일을 줄 수 있어서,
+// 버전이 붙은 주소로 받아야 캐시를 건너뛰고 새 파일을 받는다
+function withVersion(u: string | URL, build: string): URL {
+  const url = new URL(u)
+  url.searchParams.set("bnv", build.slice(0, 12))
+  return url
+}
+
 // 기록만 바뀌었을 때: 새 데이터로 제자리 갱신
-async function softReload() {
-  const indexUrl = new URL("static/contentIndex.json", siteRoot()).href
-  const fresh = fetch(indexUrl, { cache: "reload" }).then((r) => {
-    if (!r.ok) throw new Error(String(r.status))
+async function softReload(build: string) {
+  // 지금 페이지의 새 버전을 받아, 정말 새 배포 것인지 확인한다 (아니면 실패 → 잠시 뒤 다시)
+  const pageUrl = withVersion(location.href, build)
+  const pageRes = await fetch(pageUrl)
+  if (!pageRes.ok) throw new Error("페이지 " + pageRes.status)
+  const got = (await pageRes.text()).match(/name="bn-build" content="([0-9a-f]+)"/)?.[1] ?? ""
+  if (got !== build) throw new Error(`아직 옛 페이지를 받음 (${got.slice(0, 7) || "버전 없음"})`)
+
+  const fresh = fetch(withVersion(new URL("static/contentIndex.json", siteRoot()), build)).then((r) => {
+    if (!r.ok) throw new Error("데이터 " + r.status)
     return r.json()
   })
   await fresh
   ;(window as any).bnContentIndex = fresh
-  await primeCache([location.href.split("#")[0]])
+  // 원래 주소의 캐시도 새것으로 (다음에 이 페이지를 그냥 열 때를 위해)
+  void primeCache([location.href.split("#")[0]])
   document.dispatchEvent(new CustomEvent("bn-content-updated"))
   const y = window.scrollY
   // 사이트가 다른 페이지로 이동하는 중이면 spaNavigate가 아무것도 하지 않고 끝난다 → nav가 안 오면 실패로 보고 다시 시도
   let navigated = false
   const onNav = () => (navigated = true)
   document.addEventListener("nav", onNav, { once: true })
-  // isBack=true: 맨 위로 올리지 않고, 방문 기록도 새로 쌓지 않는다
-  await window.spaNavigate(new URL(location.href), true)
+  // isBack=true: 맨 위로 올리지 않고, 방문 기록도 새로 쌓지 않는다 (주소창은 그대로).
+  // 버전 붙은 주소로 부르면 방금 받아 둔 새 페이지를 쓴다
+  await window.spaNavigate(pageUrl, true)
   document.removeEventListener("nav", onNav)
   if (!navigated) throw new Error("페이지 갱신이 건너뛰어짐")
   window.scrollTo({ top: y })
@@ -100,7 +119,7 @@ async function softReload() {
 }
 
 async function applyPending() {
-  if (!pending || applying) return
+  if (!pending || applying || Date.now() < retryAt) return
   if (document.querySelector(BUSY_SELECTOR)) {
     // 닫힌 뒤 다시 시도
     if (!toldBusy) log("창·검색이 열려 있어 갱신을 미룸")
@@ -115,11 +134,12 @@ async function applyPending() {
       await hardReload()
       return
     }
-    await softReload()
+    await softReload(next.build)
     currentBuild = next.build
     if (pending === next) pending = null
   } catch (e) {
-    console.warn("[bn-live] 갱신 실패, 곧 다시 시도", e)
+    retryAt = Date.now() + RETRY_MS
+    console.warn("[bn-live] 갱신 실패, 15초 뒤 다시 시도", e)
   } finally {
     applying = false
   }
