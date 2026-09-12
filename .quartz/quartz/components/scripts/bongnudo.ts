@@ -437,13 +437,16 @@ export async function showLinkPopup(p: {
   a: SimpleSlug
   b: SimpleSlug
   knownEvents?: SimpleSlug[]
+  // 관련 인물 칸만으로는 못 찾는 행을 더 넣는 조건 (소속 선: 그 조직의 사건 중 이 조직원이 가담한 것)
+  alsoMatch?: (r: DayRow) => boolean
 }) {
   const known = new Set(p.knownEvents ?? [])
   const { thead, rows } = await readDayTables(p.currentSlug, p.data, p.resolveLink)
   const picked = new Map<SimpleSlug, DayRow>()
   for (const r of rows) {
     if (r.kind === "daily" || picked.has(r.id)) continue
-    if (known.has(r.id) || (r.related.has(p.a) && r.related.has(p.b))) picked.set(r.id, r)
+    if (known.has(r.id) || (r.related.has(p.a) && r.related.has(p.b)) || p.alsoMatch?.(r))
+      picked.set(r.id, r)
   }
 
   const tbody = document.createElement("tbody")
@@ -474,9 +477,22 @@ export async function showLinkPopup(p: {
   showEdgePopup(p.title, p.kind ? `${p.kind} · ${count}` : count, content)
 }
 
+// 그 노트가 링크한 사건·이벤트. 인물 노트의 `만남 기록`, 세력 노트의 `관련 사건`이 여기 들어온다.
+// 조직이 주체인 사건은 일지 표 '관련 인물' 칸에 조직만 적고 조직원 개인은 적지 않으므로(그래프가 복잡해져서),
+// 개인이 그 사건에 가담했는지는 이 링크로 판단한다.
+export function joinedEvents(
+  data: ContentData,
+  resolveLink: (dest: SimpleSlug) => SimpleSlug,
+  id: SimpleSlug,
+): Set<SimpleSlug> {
+  return new Set((data.get(id)?.links ?? []).map((l) => resolveLink(l)))
+}
+
 // ── 인물·세력 페이지의 사건 기록 표 ──
 
 // 이 인물·세력이 일지 표 '관련 인물' 칸에 있는 행 (나희정은 '입수 경로' 칸이 인물 링크뿐인 행도: 직접 전해 들은 일).
+// 여기에 더해, 이 노트가 링크한 사건(만남 기록·관련 사건)도 넣는다 — 조직이 주체인 사건은 '관련 인물' 칸에
+// 조직만 적히므로 그 칸만 보면 가담한 조직원의 페이지에 그 사건이 빠진다.
 // ☕ 일상도 넣는다. 일지 순서 그대로 (일차 → 행 순).
 export async function entityDayRows(
   currentSlug: FullSlug,
@@ -485,8 +501,11 @@ export async function entityDayRows(
   id: SimpleSlug,
 ): Promise<{ thead: Element | null; rows: DayRow[] }> {
   const { thead, rows } = await readDayTables(currentSlug, data, resolveLink)
+  const joined = joinedEvents(data, resolveLink, id)
   return {
     thead,
-    rows: rows.filter((r) => r.related.has(id) || (id === ME && r.sources.length > 0)),
+    rows: rows.filter(
+      (r) => r.related.has(id) || joined.has(r.id) || (id === ME && r.sources.length > 0),
+    ),
   }
 }
