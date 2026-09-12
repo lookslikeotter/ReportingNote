@@ -135,6 +135,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     tags: data.get(id)?.tags ?? [],
   }))
   const nodeById = new Map(nodes.map((n) => [n.id, n]))
+  // 인물이 셋 미만이면 상자를 작게 접고 안내 글을 보인다 (custom.scss .people-graph.bn-few)
+  graph.closest(".graph")?.classList.toggle("bn-few", nodes.length < 3)
   const graphData: { nodes: NodeData[]; links: LinkData[] } = {
     nodes,
     links: [

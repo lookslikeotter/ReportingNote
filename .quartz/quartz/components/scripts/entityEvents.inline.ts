@@ -1,6 +1,5 @@
-import type { ContentDetails } from "../../plugins/emitters/contentIndex"
 import { FullSlug, resolveRelative, simplifySlug } from "../../util/path"
-import { ContentData, entityDayRows, linkResolver, loadContentIndex } from "./bongnudo"
+import { decorateLinks, entityDayRows, linkResolver, loadContentData } from "./bongnudo"
 
 // 봉누도2 — 인물·세력 페이지의 '사건 기록' 표를 채운다. 원본은 볼트의 .quartz/quartz/components/scripts/entityEvents.inline.ts.
 // EntityEvents.tsx가 afterDOMLoaded로 싣는다. 행은 일지 표에서 그대로 가져오고(등급 색 띠 포함) 맨 앞에 일차 칸을 붙인다.
@@ -10,13 +9,9 @@ const DEFAULT_HEADS = ["시간", "사건", "요약", "관련 인물", "입수 �
 
 async function fillTable(section: HTMLElement, fullSlug: FullSlug) {
   const status = section.querySelector<HTMLElement>(".bn-entity-events-status")
-  const data: ContentData = new Map(
-    Object.entries<ContentDetails>(await loadContentIndex()).map(([k, v]) => [
-      simplifySlug(k as FullSlug),
-      v,
-    ]),
-  )
-  const { thead, rows } = await entityDayRows(fullSlug, data, linkResolver(data), simplifySlug(fullSlug))
+  const data = await loadContentData()
+  const resolveLink = linkResolver(data)
+  const { thead, rows } = await entityDayRows(fullSlug, data, resolveLink, simplifySlug(fullSlug))
   // 읽는 사이에 다른 페이지로 옮겨 갔으면 그만둔다
   if (!section.isConnected) return
   if (rows.length === 0) {
@@ -59,6 +54,7 @@ async function fillTable(section: HTMLElement, fullSlug: FullSlug) {
   const wrap = document.createElement("div")
   wrap.className = "table-container bn-case-table"
   wrap.append(table)
+  decorateLinks(wrap, data, resolveLink)
   if (status) status.replaceWith(wrap)
   else section.append(wrap)
 }

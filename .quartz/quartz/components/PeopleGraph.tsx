@@ -33,6 +33,7 @@ export default ((opts?: Partial<D3Config>) => {
       <div class={classNames(displayClass, "graph", "people-graph")}>
         <div class="graph-outer">
           <div class="people-graph-container" data-cfg={JSON.stringify(cfg)}></div>
+          <p class="bn-graph-note">만난 인물이 셋 이상 되면 인물 사이 선이 여기 그려진다.</p>
           <button class="people-global-graph-icon" aria-label="인물 그래프 크게 보기">
             <svg
               version="1.1"

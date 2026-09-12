@@ -19,6 +19,38 @@ export function loadContentIndex(): Promise<Record<string, ContentDetails>> {
   return (window as any).bnContentIndex ?? fetchData
 }
 
+// 같은 데이터를 짧은 주소(SimpleSlug) 기준 Map으로
+export async function loadContentData(): Promise<ContentData> {
+  return new Map(
+    Object.entries<ContentDetails>(await loadContentIndex()).map(([k, v]) => [
+      simplifySlug(k as FullSlug),
+      v,
+    ]),
+  )
+}
+
+// 인물·세력 링크 앞에 분류 칩을 붙인다: 인물은 분류 태그 색 점(bn-cat-*, 그래프 노드 색과 같음), 세력은 네모(bn-fac). 모양은 custom.scss
+export function decorateLinks(
+  root: ParentNode,
+  data: ContentData,
+  resolveLink: (dest: SimpleSlug) => SimpleSlug,
+) {
+  for (const a of root.querySelectorAll<HTMLAnchorElement>("a[data-slug]")) {
+    const id = resolveLink(simplifySlug(a.dataset.slug as FullSlug))
+    if (!isInfoNode(id) || a.classList.contains("bn-chip")) continue
+    const tags = data.get(id)?.tags ?? []
+    const cat = tags.includes("갱")
+      ? "gang"
+      : tags.includes("기관")
+        ? "org"
+        : tags.includes("시민")
+          ? "civ"
+          : null
+    if (cat) a.classList.add("bn-chip", `bn-cat-${cat}`)
+    else if (id.startsWith("03-세력/")) a.classList.add("bn-chip", "bn-fac")
+  }
+}
+
 // ── 노드 ──
 
 // 분류 태그별 노드 색 (앞에 있는 태그가 우선). 해당 태그가 없으면 fallback(기본 글자색)
@@ -429,6 +461,7 @@ export async function showLinkPopup(p: {
     content = document.createElement("div")
     content.className = "bn-case-table"
     content.append(table)
+    decorateLinks(content, p.data, p.resolveLink)
   } else {
     content = document.createElement("div")
     content.className = "bn-edge-empty"

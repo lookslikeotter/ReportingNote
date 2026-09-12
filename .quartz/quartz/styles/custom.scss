@@ -346,11 +346,11 @@ td > code {
 
 // 봉누도2: 취재가치별 표 행 표시 (Obsidian에서는 .obsidian/snippets/bongnudo-rows.css가 같은 규칙)
 
-// 행 맨 왼쪽 끝에 등급 색 띠만 둔다 (배경색 없음). 파랑·빨강·노랑은 색각 이상이 있어도 서로 구분된다
+// 행 맨 왼쪽 끝에 등급 색 띠. 회청·주황·보라 — 인물 분류 색(기관 파랑·시민 초록·갱 빨강)과 겹치지 않게 고른 색
 :root {
-  --bn-news-bar: #2383e2;
-  --bn-scoop-bar: #e03e3e;
-  --bn-event-bar: #dfab01;
+  --bn-news-bar: #5b6b8a;
+  --bn-scoop-bar: #f0a020;
+  --bn-event-bar: #8b5cf6;
 }
 
 // 📰 사건 — 파랑
@@ -564,7 +564,7 @@ tr:has(.bn-lv-event) > td:first-child {
 // 넓은 화면(1600px~)에서만 양쪽 칸을 넓게. 1200~1600px에서는 위(280px · 360px)로 두어 본문 표가 눌리지 않게 한다
 @media all and (min-width: 1600px) {
   .page > #quartz-body {
-    grid-template-columns: 320px auto 504px;
+    grid-template-columns: 320px auto 420px;
   }
 }
 
@@ -584,5 +584,401 @@ tr:has(.bn-lv-event) > td:first-child {
 
   & .table-container {
     overflow-x: auto;
+  }
+}
+
+// ── 봉누도2: 읽기 편의 (2차) ──
+
+// 본문 섹션 제목(개요·경과·…)을 구분선으로 나눠 훑기 쉽게
+article h2 {
+  margin-top: 2rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--lightgray);
+}
+
+// 인물 노트 첫 줄 "> 한 줄 요약"은 인용 대신 리드 문단처럼 (콜아웃은 제외)
+body[data-slug^="02-인물/"] article > blockquote:first-child:not(.callout) {
+  border-left: none;
+  padding-left: 0;
+  margin: 0.8rem 0 1.2rem;
+  font-size: 1.08rem;
+  color: var(--gray);
+}
+
+// 끌어온 블록(![[…]])의 "원본 링크"는 작게 오른쪽으로
+article .transclude > a.transclude-src {
+  display: block;
+  text-align: right;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+// 표 글자를 조금 키운다 (일지 표는 정보 밀도가 높다)
+article table,
+.bn-case-table table {
+  font-size: 15px;
+}
+
+// ── 일지 표 (일지·첫 화면·사건 목록 페이지의 표, 사건 기록 표) ──
+body[data-slug$="일차"] article table,
+body[data-slug="index"] article table,
+body[data-slug="01-일지/사건-목록"] article table,
+.bn-case-table table {
+  width: 100%;
+
+  // 시간 칸: 줄바꿈 없이, 숫자 폭 고정
+  & td:first-child,
+  & th:first-child {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  // 사건 칸: 굵게, 줄바꿈 없이
+  & td:nth-child(2) a {
+    font-weight: 600;
+  }
+  & td:nth-child(2) {
+    white-space: nowrap;
+  }
+
+  // 관련 인물·입수 경로 칸은 내용만큼, 요약 칸이 남는 너비를 쓴다
+  & td:nth-child(4),
+  & td:nth-child(5) {
+    white-space: nowrap;
+  }
+  & td:nth-child(3) {
+    width: 100%;
+    min-width: 12em;
+  }
+
+  // 행에 마우스를 올리면 옅은 배경
+  & tbody tr:hover > td {
+    background-color: var(--bn-hover);
+  }
+
+  // 🔥 특종 행은 아주 옅은 주황 배경
+  & tr:has(.bn-lv-scoop) > td {
+    background-color: rgba(240, 160, 32, 0.07);
+  }
+}
+// 사건 기록 표는 일차 칸이 앞에 하나 더 있다
+.bn-case-table table {
+  & td:nth-child(2) {
+    font-weight: 400;
+    white-space: nowrap;
+  }
+  & td:nth-child(3) a {
+    font-weight: 600;
+  }
+  & td:nth-child(3) {
+    width: auto;
+    min-width: 0;
+    white-space: nowrap;
+  }
+  & td:nth-child(4) {
+    width: 100%;
+    min-width: 12em;
+    white-space: normal;
+  }
+  & td:nth-child(6) {
+    white-space: nowrap;
+  }
+}
+
+// ── 인물·세력 링크 칩 (LinkChips / bongnudo.ts decorateLinks): 인물은 분류 색 점, 세력은 네모 ──
+a.internal.bn-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  white-space: nowrap;
+
+  &::before {
+    content: "";
+    display: inline-block;
+    width: 0.55em;
+    height: 0.55em;
+    border-radius: 50%;
+    background-color: var(--bn-chip, var(--gray));
+    flex: none;
+  }
+  &.bn-cat-org {
+    --bn-chip: #0075de;
+  }
+  &.bn-cat-civ {
+    --bn-chip: #1aae39;
+  }
+  &.bn-cat-gang {
+    --bn-chip: #e03131;
+  }
+  &.bn-fac::before {
+    border-radius: 2px;
+    background-color: var(--darkgray);
+  }
+}
+
+// ── 속성 카드 (InfoBox.tsx) ──
+.bn-infobox {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.35rem 1.1rem;
+  margin: 1rem 0 0;
+  padding: 0.8rem 1rem;
+  max-width: 680px;
+  border: 1px solid var(--lightgray);
+  border-radius: 8px;
+  background-color: var(--bn-surface);
+  font-size: 14px;
+  line-height: 1.5;
+
+  & > dt {
+    margin: 0;
+    color: var(--gray);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  & > dd {
+    margin: 0;
+    color: var(--darkgray);
+    min-width: 0;
+  }
+}
+
+// 배지 (취재가치·상태·관계·분류). 색은 값(data-v)으로 정한다
+.bn-badge {
+  --b: var(--gray);
+  display: inline-block;
+  padding: 0.05rem 0.55rem;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--b);
+  background-color: color-mix(in srgb, var(--b) 16%, transparent);
+  white-space: nowrap;
+
+  // 취재가치
+  &[data-v="📰 사건"] {
+    --b: var(--bn-news-bar);
+  }
+  &[data-v="🔥 특종"] {
+    --b: #c77800;
+  }
+  // 나희정과의 관계·상태·분류
+  &[data-v="동료"],
+  &[data-v="우호"],
+  &[data-v="활동"],
+  &[data-v="동맹"] {
+    --b: #1a9a36;
+  }
+  &[data-v="취재원"],
+  &[data-v="협력"],
+  &[data-v="보도됨"] {
+    --b: #0075de;
+  }
+  &[data-v="경계"],
+  &[data-v="경쟁"],
+  &[data-v="진행중"],
+  &[data-v="작성중"],
+  &[data-v="취재중"] {
+    --b: #c77800;
+  }
+  &[data-v="적대"],
+  &[data-v="무산"],
+  &[data-v="폐기"],
+  &[data-v="갱"] {
+    --b: #e03131;
+  }
+  &[data-v="미궁"],
+  &[data-v="예고"] {
+    --b: #8b5cf6;
+  }
+  &[data-v="기관"] {
+    --b: #0075de;
+  }
+  &[data-v="사업체"] {
+    --b: #1a9a36;
+  }
+  &[data-v="미정"],
+  &[data-v="중립"] {
+    border: 1px dashed var(--gray);
+    background-color: transparent;
+  }
+}
+:root[saved-theme="dark"] .bn-badge[data-v="📰 사건"] {
+  --b: #8a9bbb;
+}
+
+// ── 일차 이동 (DayNav.tsx) ──
+.bn-daynav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.8rem 0 0;
+  font-size: 14px;
+
+  & .bn-pill {
+    display: inline-block;
+    padding: 0.2rem 0.75rem;
+    border: 1px solid var(--lightgray);
+    border-radius: 999px;
+    color: var(--darkgray);
+    background-color: var(--light);
+    max-width: 18em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &:hover {
+      background-color: var(--bn-hover);
+    }
+    &.current {
+      font-weight: 600;
+      color: var(--secondary);
+    }
+    &.disabled {
+      color: var(--gray);
+      opacity: 0.6;
+    }
+  }
+  & .bn-dayselect {
+    padding: 0.2rem 0.6rem;
+    border: 1px solid var(--lightgray);
+    border-radius: 999px;
+    background-color: var(--bn-surface);
+    color: var(--dark);
+    font-family: var(--bodyFont);
+    font-size: 14px;
+    cursor: pointer;
+  }
+}
+
+// 링크 미리보기 창에서는 카드만 작게, 이동·버튼은 숨김
+.popover .bn-infobox {
+  font-size: 12px;
+  padding: 0.5rem 0.7rem;
+  margin-top: 0.5rem;
+}
+.popover .bn-daynav,
+.popover .bn-graph-toggle,
+.popover .bn-entity-events {
+  display: none;
+}
+
+// ── 오른쪽 그래프: 위(인물) 40% · 아래 60%. 인물이 적으면 위를 접는다 ──
+@media all and (min-width: 1200px) {
+  .page > #quartz-body .sidebar.right .people-graph > .graph-outer {
+    height: calc((100vh - 5rem) * 0.4);
+  }
+  .page > #quartz-body .sidebar.right .people-graph + .graph > .graph-outer {
+    height: calc((100vh - 5rem) * 0.6);
+  }
+  .page > #quartz-body .sidebar.right .people-graph.bn-few > .graph-outer {
+    height: 88px;
+  }
+  .page > #quartz-body .sidebar.right .people-graph.bn-few + .graph > .graph-outer {
+    height: calc(100vh - 5rem - 88px - 1rem);
+  }
+}
+.people-graph .bn-graph-note {
+  display: none;
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  bottom: 0.6rem;
+  margin: 0;
+  font-size: 13px;
+  color: var(--gray);
+  pointer-events: none;
+}
+.people-graph.bn-few .bn-graph-note {
+  display: block;
+}
+.people-graph.bn-few .people-graph-container canvas {
+  opacity: 0.35;
+}
+
+// ── 좁은 화면 ──
+.bn-graph-toggle {
+  display: none;
+}
+@media all and (max-width: 800px) {
+  // 그래프 두 개는 버튼으로 펼칠 때만
+  .bn-graph-toggle {
+    display: inline-block;
+    margin: 0.6rem 0 0;
+    padding: 0.3rem 0.9rem;
+    border: 1px solid var(--lightgray);
+    border-radius: 999px;
+    background-color: var(--bn-surface);
+    color: var(--darkgray);
+    font-family: var(--bodyFont);
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .page > #quartz-body .sidebar.right .graph {
+    display: none;
+  }
+  body.bn-show-graphs .page > #quartz-body .sidebar.right .graph {
+    display: block;
+  }
+
+  // 일지 표는 행 하나 = 카드 하나
+  body[data-slug$="일차"] article table,
+  body[data-slug="index"] article table,
+  body[data-slug="01-일지/사건-목록"] article table {
+    display: block;
+    border: none;
+    border-radius: 0;
+
+    & thead {
+      display: none;
+    }
+    & tbody,
+    & tr,
+    & td {
+      display: block;
+      width: auto;
+      min-width: 0;
+      white-space: normal;
+    }
+    & tr {
+      padding: 0.5rem 0.7rem;
+      border: 1px solid var(--lightgray);
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+    }
+    & td {
+      border: none;
+      padding: 0.1rem 0;
+      box-shadow: none !important;
+      background-color: transparent !important;
+    }
+    & td:first-child {
+      font-size: 12px;
+      color: var(--gray);
+    }
+    & td:nth-child(4)::before {
+      content: "관련 인물 · ";
+      color: var(--gray);
+    }
+    & td:nth-child(5)::before {
+      content: "입수 경로 · ";
+      color: var(--gray);
+    }
+    // 등급 띠는 카드 왼쪽 테두리로
+    & tr:has(.bn-lv-news) {
+      border-left: 4px solid var(--bn-news-bar);
+    }
+    & tr:has(.bn-lv-scoop) {
+      border-left: 4px solid var(--bn-scoop-bar);
+      background-color: rgba(240, 160, 32, 0.07);
+    }
+    & tr:has(.bn-lv-event) {
+      border-left: 4px solid var(--bn-event-bar);
+    }
+  }
+  .bn-infobox {
+    font-size: 13px;
   }
 }

@@ -8,6 +8,13 @@ import DayLegend from "./quartz/components/DayLegend"
 import EntityEvents from "./quartz/components/EntityEvents"
 import BnTagList from "./quartz/components/BnTagList"
 import BnFooter from "./quartz/components/BnFooter"
+import BnHead from "./quartz/components/BnHead"
+import BnTitle from "./quartz/components/BnTitle"
+import BnBreadcrumbs from "./quartz/components/BnBreadcrumbs"
+import InfoBox from "./quartz/components/InfoBox"
+import DayNav from "./quartz/components/DayNav"
+import LinkChips from "./quartz/components/LinkChips"
+import GraphToggle from "./quartz/components/GraphToggle"
 
 // 봉누도2 — 원본은 볼트의 .quartz/quartz.layout.ts. GitHub Actions가 빌드 때 Quartz에 덮어쓴다.
 // 실제 날짜가 보이지 않도록 ContentMeta(수정일·읽는 시간)는 넣지 않고, 바닥글도 도구 이름·연도가 없는 BnFooter를 쓴다.
@@ -28,10 +35,11 @@ const explorer = Component.Explorer({
 
 // components shared across all pages
 export const sharedPageComponents: SharedLayout = {
-  head: Component.Head(),
+  // 탭 제목에서 번호를 뗀 Head
+  head: BnHead(),
   header: [],
-  // 본문 아래: 인물·세력 페이지의 '사건 기록' 표 (다른 페이지에서는 아무것도 그리지 않음)
-  afterBody: [EntityEvents(), ExplorerDefaults(), FontLoader()],
+  // 본문 아래: 인물·세력 페이지의 '사건 기록' 표 (다른 페이지에서는 아무것도 그리지 않음), 인물·세력 링크 칩 스크립트
+  afterBody: [EntityEvents(), LinkChips(), ExplorerDefaults(), FontLoader()],
   footer: BnFooter(),
 }
 
@@ -41,14 +49,21 @@ export const defaultContentPageLayout: PageLayout = {
   beforeBody: [
     RefreshButton(),
     Component.ConditionalRender({
-      component: Component.Breadcrumbs(),
+      component: BnBreadcrumbs(),
       condition: (page) => page.fileData.slug !== "index",
     }),
-    Component.ArticleTitle(),
+    // 제목·경로는 관리용 번호를 뗀 이름으로
+    BnTitle(),
     // 일지·사건 목록 페이지에서만 제목 오른쪽에 표 색 안내
     DayLegend(),
+    // 일지·사건 페이지의 이전/다음 이동
+    DayNav(),
+    // 노트 type별 속성 카드
+    InfoBox(),
     // 세력 관계 태그(경쟁/… 등)는 빼고 보여 주는 태그 목록
     BnTagList(),
+    // 좁은 화면에서만 보이는 그래프 접기/펴기
+    GraphToggle(),
   ],
   left: [
     Component.MobileOnly(Component.Spacer()),
@@ -76,7 +91,7 @@ export const defaultContentPageLayout: PageLayout = {
 
 // components for pages that display lists of pages  (e.g. tags or folders)
 export const defaultListPageLayout: PageLayout = {
-  beforeBody: [RefreshButton(), Component.Breadcrumbs(), Component.ArticleTitle()],
+  beforeBody: [RefreshButton(), BnBreadcrumbs(), BnTitle()],
   left: [
     Component.MobileOnly(Component.Spacer()),
     Component.Flex({
