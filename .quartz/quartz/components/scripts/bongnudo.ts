@@ -38,7 +38,7 @@ export async function decorateLinks(
   resolveLink: (dest: SimpleSlug) => SimpleSlug,
   currentSlug: FullSlug,
 ) {
-  const colors = (await fetchDays(currentSlug))?.factions ?? {}
+  const colors = await factionColors(currentSlug)
   const factions = factionIndex(data)
   for (const a of root.querySelectorAll<HTMLAnchorElement>("a[data-slug]")) {
     const id = resolveLink(simplifySlug(a.dataset.slug as FullSlug))
@@ -49,9 +49,7 @@ export async function decorateLinks(
       color = colors[id] ?? ""
       a.classList.add("bn-chip", "bn-fac")
     } else if (id.startsWith("02-인물/")) {
-      // 조직 태그와 이름이 같은 세력을 찾아 그 색을 쓴다
-      const org = tags.map(normalizeName).map((t) => factions.get(t)).find((s) => s)
-      color = (org ? colors[org] : undefined) ?? categoryColor(tags, "")
+      color = personColor(tags, colors, factions, "")
       a.classList.add("bn-chip")
     } else continue
     if (color) a.style.setProperty("--bn-chip", color)
@@ -69,6 +67,25 @@ const CATEGORY_COLORS: [string, string][] = [
 
 export function categoryColor(tags: string[], fallback: string): string {
   return CATEGORY_COLORS.find(([tag]) => tags.includes(tag))?.[1] ?? fallback
+}
+
+// 세력 색 (bn-days.json factions: 분류별 기본값 또는 세력 노트의 `색` 속성)
+export async function factionColors(currentSlug: FullSlug): Promise<Record<string, string>> {
+  return (await fetchDays(currentSlug))?.factions ?? {}
+}
+
+// 인물 색 = 소속 세력의 색. 소속이 없으면 분류 태그 색, 그것도 없으면 fallback
+export function personColor(
+  tags: string[],
+  colors: Record<string, string>,
+  factions: Map<string, SimpleSlug>,
+  fallback: string,
+): string {
+  const org = tags
+    .map(normalizeName)
+    .map((t) => factions.get(t))
+    .find((s) => s)
+  return (org ? colors[org] : undefined) ?? categoryColor(tags, fallback)
 }
 
 // 그래프에 남기는 정보 노드: 인물·세력·장소 (목록 문서는 뺀다)

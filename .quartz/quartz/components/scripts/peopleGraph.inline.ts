@@ -22,11 +22,12 @@ import { D3Config } from "../Graph"
 import {
   ContentData,
   HOVER_EXTRA_WIDTH,
-  categoryColor,
   eventLinkColor,
   eventLinkWidth,
   tableEventPairs,
+  factionColors,
   factionIndex,
+  personColor,
   linkResolver,
   loadContentIndex,
   nearestLink,
@@ -121,6 +122,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     if ((details.tags ?? []).includes(PERSON_TAG)) people.add(id)
   }
 
+  const fcolors = await factionColors(fullSlug)
+
   // 소속: 조직 태그 = 세력 노트 이름과 같은 태그
   const factions = factionIndex(data)
   const orgOf = new Map<SimpleSlug, string>()
@@ -213,7 +216,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     {} as Record<(typeof cssVars)[number], string>,
   )
 
-  const color = (d: NodeData) => categoryColor(d.tags, computedStyleMap["--dark"])
+  // 인물 색은 소속 세력의 색 (아래 그래프와 같은 규칙)
+  const color = (d: NodeData) => personColor(d.tags, fcolors, factions, computedStyleMap["--dark"])
   const eventColor = (l: LinkData) =>
     eventLinkColor(l.weight, computedStyleMap["--gray"], computedStyleMap["--dark"])
 

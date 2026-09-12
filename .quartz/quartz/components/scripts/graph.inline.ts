@@ -27,8 +27,10 @@ import {
   eventLinkWidth,
   caseNodeLinks,
   tableEventPairs,
+  factionColors,
   factionIndex,
   isInfoNode,
+  personColor,
   isPersonNode,
   linkResolver,
   loadContentIndex,
@@ -53,6 +55,9 @@ import {
 //   - 사이드바 그래프는 INITIAL_ZOOM 배율로 확대해서 시작한다 (전체 그래프는 원래 배율)
 
 const INITIAL_ZOOM = 1.5
+
+// 세력 노드는 인물보다 크게 (눈에 먼저 들어오게)
+const FACTION_NODE_SCALE = 2
 
 // 세력 관계 선 모양. 세력 노트의 관계 태그(예: 경쟁/병원)로 세력끼리 잇는다.
 // 관계 종류는 색·굵기만 정한다. 거리는 사건 인연(함께 엮인 사건 수)이 정한다 —
@@ -162,6 +167,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
 
   // 사건 인연 선: 일지 표 📰·🔥 행의 관련 인물 칸에 함께 적힌 노드끼리 (인물·세력 모두).
   // 이웃 계산에도 넣어서, 사건으로 엮인 상대가 그 페이지 그래프에 보이게 한다
+  const fcolors = await factionColors(fullSlug)
+
   const eventLinks = await tableEventPairs(fullSlug, data, resolveLink, isInfoNode)
   for (const l of eventLinks.values()) links.push({ source: l.source, target: l.target })
 
@@ -296,13 +303,19 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     {} as Record<(typeof cssVars)[number], string>,
   )
 
-  const color = (d: NodeData) => categoryColor(d.tags, computedStyleMap["--dark"])
+  // 인물은 소속 세력 색, 세력 노드는 기본 글자색(검정)으로 둔다
+  const color = (d: NodeData) =>
+    d.id.startsWith("03-세력/")
+      ? computedStyleMap["--dark"]
+      : personColor(d.tags, fcolors, factions, computedStyleMap["--dark"])
 
   function nodeRadius(d: NodeData) {
     const numLinks = graphData.links.filter(
       (l) => l.source.id === d.id || l.target.id === d.id,
     ).length
-    return 2 + Math.sqrt(numLinks)
+    const r = 2 + Math.sqrt(numLinks)
+    // 세력 노드는 두 배 크게
+    return d.id.startsWith("03-세력/") ? r * FACTION_NODE_SCALE : r
   }
 
   let hoveredNodeId: string | null = null
