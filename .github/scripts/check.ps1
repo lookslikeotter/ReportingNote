@@ -225,13 +225,15 @@ foreach ($c in $caseNotes) {
   $st = Scalar $fm '상태'; if ($st -ne "" -and $validStatus -notcontains $st) { Warn $c.Rel "상태 값이 목록에 없음: '$st'" }
   if ((Scalar $fm '시간') -notmatch '^\d{2}:\d{2}$') { Err $c.Rel "시간이 HH:MM 꼴이 아님: '$(Scalar $fm '시간')'" }
   if ((Scalar $fm '요약') -eq "") { Err $c.Rel "요약이 비었음" }
-  $rel = @(); $relPeople = @()
+  # $rel = 일지 표 '관련 인물' 칸에 들어갈 것 (관련인물 + 관련세력)
+  # $present = 그 자리에 있던 사람 (관련인물 + 가담인물) / $heard = 나희정이 직접 들은 사람 (입수경로)
+  $rel = @(); $relPeople = @(); $present = @(); $heard = @()
   foreach ($t in (ListOf $fm '관련인물')) {
     $lt = LinkTargets $t; if ($lt.Count -eq 0) { Err $c.Rel "관련인물 항목이 링크가 아님: $t"; continue }
     $r = Resolve $lt[0]
     if (-not $r) { Err $c.Rel "관련인물 [[${t}]] 노트 없음"; $rel += "?" + $lt[0]; continue }
     if ($r.Folder -ne "02 인물") { Err $c.Rel "관련인물 [[$($lt[0])]]이 02 인물 노트가 아님" }
-    $rel += $r.Path; $relPeople += $r.Path
+    $rel += $r.Path; $relPeople += $r.Path; $present += $r.Path
   }
   foreach ($t in (ListOf $fm '관련세력')) {
     $lt = LinkTargets $t; if ($lt.Count -eq 0) { Err $c.Rel "관련세력 항목이 링크가 아님: $t"; continue }
@@ -250,7 +252,7 @@ foreach ($c in $caseNotes) {
     if (-not $r) { Err $c.Rel "가담인물 [[$($lt[0])]] 노트 없음"; continue }
     if ($r.Folder -ne "02 인물") { Err $c.Rel "가담인물 [[$($lt[0])]]이 02 인물 노트가 아님"; continue }
     if ($relPeople -contains $r.Path) { Err $c.Rel "[[$($lt[0])]]이 관련인물과 가담인물에 모두 있음" }
-    else { $relPeople += $r.Path }
+    else { $relPeople += $r.Path; $present += $r.Path }
     if (-not (LinksTo $c $r)) { Warn $c.Rel "가담인물 [[$($lt[0])]]이 본문에 링크되어 있지 않음" }
   }
   if ((ListOf $fm '가담인물').Count -gt 0 -and (ListOf $fm '관련세력').Count -eq 0) {
@@ -261,13 +263,18 @@ foreach ($c in $caseNotes) {
   if ($src -ne "" -and $src -ne "직접" -and $srcLinks.Count -eq 0) { Warn $c.Rel "입수경로가 '직접'도 링크도 아님: '$src'" }
   foreach ($t in $srcLinks) {
     $r = Resolve $t
-    if ($r -and $r.Folder -eq "02 인물" -and (Norm $src) -eq (Norm "[[${t}]]")) { $relPeople += $r.Path }  # 직접 들은 사람도 만남
+    if ($r -and $r.Folder -eq "02 인물" -and (Norm $src) -eq (Norm "[[${t}]]")) { $heard += $r.Path }  # 직접 들은 사람도 만남
     if ($r -and $r.Folder -eq "02 인물" -and (Norm $src) -ne (Norm "[[${t}]]") -and (Norm $src) -notmatch '^\[\[') {
       # "SNS ([[자료|작성자]])" 꼴이면 자료 노트여야 한다
       Warn $c.Rel "입수경로가 매체 형식인데 인물 노트를 가리킴: '$src'"
     }
   }
-  foreach ($p in ($relPeople | Select-Object -Unique)) {
+  # 만남으로 세는 것: 나희정이 그 자리에 있었으면 함께 있던 사람 전부, 그 밖에는 직접 들은 사람만.
+  # (나희정이 없던 사건의 가담인물은 '가담'이지 '만남'이 아니다)
+  $meetPeople = @($heard)
+  if ($present -contains "02 인물/000 나희정") { $meetPeople += $present }
+  foreach ($p in ($meetPeople | Select-Object -Unique)) {
+    if ($p -eq "02 인물/000 나희정") { continue }
     if (-not $meetings.ContainsKey($p)) { $meetings[$p] = @() }
     $meetings[$p] += [pscustomobject]@{ Day = $dn; Case = $c }
   }
