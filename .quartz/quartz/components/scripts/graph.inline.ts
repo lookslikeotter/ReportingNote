@@ -25,6 +25,7 @@ import {
   categoryColor,
   eventLinkColor,
   eventLinkWidth,
+  caseNodeLinks,
   tableEventPairs,
   factionIndex,
   isInfoNode,
@@ -163,6 +164,10 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   // 이웃 계산에도 넣어서, 사건으로 엮인 상대가 그 페이지 그래프에 보이게 한다
   const eventLinks = await tableEventPairs(fullSlug, data, resolveLink, isInfoNode)
   for (const l of eventLinks.values()) links.push({ source: l.source, target: l.target })
+
+  // 사건·이벤트 노트 ↔ 그 사건의 당사자. 이웃 계산에만 쓴다 (사건 노트는 노드가 아니라 선도 생기지 않는다).
+  // 이게 없으면 사건 페이지 그래프에 관련 인물이 빠진다 (frontmatter 링크는 사이트 데이터에 없다)
+  for (const l of await caseNodeLinks(fullSlug, data, resolveLink)) links.push(l)
 
   // 세력 관계 선: 세력 노트의 관계 태그(동맹/·협력/·경쟁/·적대/ + 상대 세력 이름)로 잇는다.
   // 관계 태그가 없으면 세력끼리는 선을 긋지 않는다. 양쪽에 모두 적혀 있으면 한 번만 긋는다.

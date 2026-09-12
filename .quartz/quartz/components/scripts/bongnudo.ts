@@ -493,6 +493,28 @@ export async function showLinkPopup(p: {
   showEdgePopup(p.title, p.kind ? `${p.kind} · ${count}` : count, content)
 }
 
+// 사건·이벤트 노트 ↔ 그 사건에 나온 인물·세력 (일지 표 '관련 인물' 칸 + 사건의 `가담인물`).
+// 그래프의 이웃 계산에만 쓴다 — 사건 노트는 노드가 아니므로 선으로 그려지지 않는다.
+// frontmatter의 링크는 사이트 데이터에 들어가지 않아서, 이게 없으면 사건 페이지 그래프에 당사자가 빠진다.
+export async function caseNodeLinks(
+  currentSlug: FullSlug,
+  data: ContentData,
+  resolveLink: (dest: SimpleSlug) => SimpleSlug,
+): Promise<{ source: SimpleSlug; target: SimpleSlug }[]> {
+  const { rows, joined } = await readDayTables(currentSlug, data, resolveLink)
+  const out: { source: SimpleSlug; target: SimpleSlug }[] = []
+  const seen = new Set<string>()
+  for (const r of rows) {
+    for (const t of [...r.related, ...(joined[r.id] ?? [])]) {
+      const key = r.id + "|" + t
+      if (seen.has(key) || t === r.id) continue
+      seen.add(key)
+      out.push({ source: r.id, target: t })
+    }
+  }
+  return out
+}
+
 // ── 인물·세력 페이지의 사건 기록 표 ──
 
 // 이 인물·세력이 일지 표 '관련 인물' 칸에 있는 행 (나희정은 '입수 경로' 칸이 인물 링크뿐인 행도: 직접 전해 들은 일)
