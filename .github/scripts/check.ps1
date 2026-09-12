@@ -226,7 +226,7 @@ foreach ($c in $caseNotes) {
   if ((Scalar $fm '시간') -notmatch '^\d{2}:\d{2}$') { Err $c.Rel "시간이 HH:MM 꼴이 아님: '$(Scalar $fm '시간')'" }
   if ((Scalar $fm '요약') -eq "") { Err $c.Rel "요약이 비었음" }
   # $rel = 일지 표 '관련 인물' 칸에 들어갈 것 (관련인물 + 관련세력)
-  # $present = 그 자리에 있던 사람 (관련인물 + 가담인물) / $heard = 나희정이 직접 들은 사람 (입수경로)
+  # $present = 그 자리에 있던 사람 (관련인물 + 가담인물) / $heard = 명총희가 직접 들은 사람 (입수경로)
   $rel = @(); $relPeople = @(); $present = @(); $heard = @()
   foreach ($t in (ListOf $fm '관련인물')) {
     $lt = LinkTargets $t; if ($lt.Count -eq 0) { Err $c.Rel "관련인물 항목이 링크가 아님: $t"; continue }
@@ -269,12 +269,12 @@ foreach ($c in $caseNotes) {
       Warn $c.Rel "입수경로가 매체 형식인데 인물 노트를 가리킴: '$src'"
     }
   }
-  # 만남으로 세는 것: 나희정이 그 자리에 있었으면 함께 있던 사람 전부, 그 밖에는 직접 들은 사람만.
-  # (나희정이 없던 사건의 가담인물은 '가담'이지 '만남'이 아니다)
+  # 만남으로 세는 것: 명총희가 그 자리에 있었으면 함께 있던 사람 전부, 그 밖에는 직접 들은 사람만.
+  # (명총희가 없던 사건의 가담인물은 '가담'이지 '만남'이 아니다)
   $meetPeople = @($heard)
-  if ($present -contains "02 인물/000 나희정") { $meetPeople += $present }
+  if ($present -contains "02 인물/000 명총희") { $meetPeople += $present }
   foreach ($p in ($meetPeople | Select-Object -Unique)) {
-    if ($p -eq "02 인물/000 나희정") { continue }
+    if ($p -eq "02 인물/000 명총희") { continue }
     if (-not $meetings.ContainsKey($p)) { $meetings[$p] = @() }
     $meetings[$p] += [pscustomobject]@{ Day = $dn; Case = $c }
   }
@@ -337,7 +337,7 @@ foreach ($p in $people) {
     # 이름을 모르는 인물(미상-…)은 aliases를 비워 둬도 된다
     if ($nm -notmatch '^미상[\s-]' -and (ListOf $fm 'aliases') -notcontains $nm) { Err $p.Rel "aliases에 번호를 뺀 이름 '$nm' 없음" }
     if ($num -ne "000" -and $tags -notcontains "인물") { Err $p.Rel "tags에 인물 없음" }
-    if ($num -eq "000" -and $tags -contains "인물") { Err $p.Rel "나희정 노트에는 인물 태그를 달지 않음" }
+    if ($num -eq "000" -and $tags -contains "인물") { Err $p.Rel "명총희 노트에는 인물 태그를 달지 않음" }
   } else {
     if ((ListOf $fm 'aliases') -notcontains $p.Name) { Warn $p.Rel "aliases에 이름 '$($p.Name)' 없음" }
   }
@@ -350,7 +350,7 @@ foreach ($p in $people) {
     else { Warn $p.Rel "조직 태그 '$t'에 맞는 세력 노트가 없음 (소속 점선이 그려지지 않음)" }
   }
   $rv = Scalar $fm '관계'; if ($rv -ne "" -and @("동료", "우호", "취재원", "중립", "경계", "적대", "미정") -notcontains $rv) { Warn $p.Rel "관계 값이 목록에 없음: '$rv'" }
-  # 나희정 본인(000)은 만난 인물이 아니므로 인물 목록에 없어도 된다
+  # 명총희 본인(000)은 만난 인물이 아니므로 인물 목록에 없어도 된다
   if ($peopleList -and -not ($numbered -and $num -eq "000") -and -not (LinksTo $peopleList $p)) {
     if ($numbered) { Err $peopleList.Rel "'$($p.Name)' 링크 없음" } else { Warn $peopleList.Rel "'$($p.Name)' 링크 없음 (아직 만나지 않은 인물 표)" }
   }

@@ -4,7 +4,7 @@ import script from "./scripts/entityEvents.inline"
 import { classNames } from "../util/lang"
 
 // 봉누도2 — 인물·세력 페이지 아래 '사건 기록' 표. 원본은 볼트의 .quartz/quartz/components/EntityEvents.tsx (빌드 때 Quartz에 복사).
-// 일지 표에서 이 인물·세력이 '관련 인물' 칸에 있는 행(나희정은 '입수 경로' 칸이 인물 링크인 행도)을
+// 일지 표에서 이 인물·세력이 '관련 인물' 칸에 있는 행(명총희는 '입수 경로' 칸이 인물 링크인 행도)을
 // 일차 순으로 모아 일지와 같은 모양의 표로 보여 준다. ☕·📰·🔥·📅 모두 들어간다.
 // 여기서는 자리만 만들고, 표는 entityEvents.inline.ts가 페이지를 연 뒤 일지 표를 읽어 채운다.
 

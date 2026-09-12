@@ -100,8 +100,8 @@ export function isPersonNode(id: string): boolean {
   return isInfoNode(id) && id.startsWith("02-인물/")
 }
 
-// 나희정 본인 노트 (일지 표 '입수 경로'로 나희정과 전해 준 사람을 잇는다)
-export const ME = "02-인물/000-나희정" as SimpleSlug
+// 명총희 본인 노트 (일지 표 '입수 경로'로 명총희와 전해 준 사람을 잇는다)
+export const ME = "02-인물/000-명총희" as SimpleSlug
 
 // 노드 이름표: 인물 이름 앞 번호(001 등)는 뗀다
 export function nodeLabel(title: string): string {
@@ -158,7 +158,7 @@ export type EventPair = {
 
 // 일지 표(N일차) 📰 사건·🔥 특종 행의 '관련 인물' 칸에 함께 적힌 당사자(isParticipant) 두 명마다 한 쌍을 만든다. 키는 pairKey.
 // 선을 눌렀을 때 뜨는 표와 같은 칸을 기준으로 삼는다. ☕ 일상·📅 이벤트 행은 선을 만들지 않는다.
-// '입수 경로' 칸이 인물 링크뿐이면(나희정이 그 사람에게서 직접 들음) 나희정과 그 인물도 잇는다.
+// '입수 경로' 칸이 인물 링크뿐이면(명총희가 그 사람에게서 직접 들음) 명총희와 그 인물도 잇는다.
 // 기사·SNS 등 매체로 알게 된 일은 잇지 않는다.
 export async function tableEventPairs(
   currentSlug: FullSlug,
@@ -173,7 +173,7 @@ export async function tableEventPairs(
     if ((r.kind !== "news" && r.kind !== "scoop") || seen.has(r.id)) continue
     seen.add(r.id)
     const eventId = r.id
-    // 이 사건으로 이어지는 두 사람: 관련 인물끼리 + 나희정과 직접 전해 준 사람 (같은 쌍은 한 번만)
+    // 이 사건으로 이어지는 두 사람: 관련 인물끼리 + 명총희와 직접 전해 준 사람 (같은 쌍은 한 번만)
     const rowPairs = new Map<string, [SimpleSlug, SimpleSlug]>()
     const involved = [...r.related].filter(isParticipant)
     for (let i = 0; i < involved.length; i++) {
@@ -386,7 +386,7 @@ export type DayRow = {
   kind: "daily" | "news" | "scoop" | "event"
   // '관련 인물' 칸의 인물·세력
   related: Set<SimpleSlug>
-  // '입수 경로' 칸이 인물 링크로만 되어 있으면 그 인물들 (나희정에게 직접 전해 준 사람). 직접·기사·SNS 등이면 빈 배열
+  // '입수 경로' 칸이 인물 링크로만 되어 있으면 그 인물들 (명총희에게 직접 전해 준 사람). 직접·기사·SNS 등이면 빈 배열
   sources: SimpleSlug[]
   // 링크를 절대 주소로 고친 행 복사본
   row: Element
@@ -542,7 +542,7 @@ export async function caseNodeLinks(
 
 // ── 인물·세력 페이지의 사건 기록 표 ──
 
-// 이 인물·세력이 일지 표 '관련 인물' 칸에 있는 행 (나희정은 '입수 경로' 칸이 인물 링크뿐인 행도: 직접 전해 들은 일)
+// 이 인물·세력이 일지 표 '관련 인물' 칸에 있는 행 (명총희는 '입수 경로' 칸이 인물 링크뿐인 행도: 직접 전해 들은 일)
 // + 그 사건의 `가담인물`에 이 인물이 있는 행 (조직이 주체라 '관련 인물' 칸에 이름이 없는 경우).
 // ☕ 일상도 넣는다. 일지 순서 그대로 (일차 → 행 순).
 export async function entityDayRows(

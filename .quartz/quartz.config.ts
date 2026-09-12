@@ -3,12 +3,12 @@ import * as Plugin from "./quartz/plugins"
 import { BnDays } from "./quartz/plugins/emitters/bnDays"
 
 /**
- * 봉누도2 — 나희정의 취재수첩 (Quartz v4.5.2 설정)
+ * 봉누도2 — 명총희의 취재수첩 (Quartz v4.5.2 설정)
  * 원본은 볼트의 .quartz/quartz.config.ts. GitHub Actions가 빌드 때 Quartz에 덮어쓴다.
  */
 const config: QuartzConfig = {
   configuration: {
-    pageTitle: "나희정의 취재수첩",
+    pageTitle: "명총희의 취재수첩",
     pageTitleSuffix: "",
     enableSPA: true,
     enablePopovers: true,
