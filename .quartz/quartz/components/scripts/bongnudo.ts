@@ -286,11 +286,16 @@ function eventSummary(details: ContentDetails | undefined): string {
   return (m?.[1] ?? "").trim()
 }
 
-// 일지 표 데이터: 빌드 때 plugins/emitters/bnDays.ts가 만든 static/bn-days.json (일차 → 일지 주소·머리줄·행 HTML).
+// 일지 데이터: 빌드 때 plugins/emitters/bnDays.ts가 만든 static/bn-days.json
+//   days  = 일차 → 일지 주소·머리줄·행 HTML
+//   cases = 사건 주소 → 가담인물 (조직이 주체라 일지 표 '관련 인물' 칸에 이름이 없는 사람들)
 // 한 번 받아 페이지를 여는 동안 다시 쓰고, 자동 갱신으로 새 기록이 오면 버린다. 실패는 기억하지 않는다 (다음에 다시 시도)
-type DaysData = Record<string, { slug: SimpleSlug; thead: string; rows: string[] }>
-let daysCache: Promise<DaysData | null> | null = null
-function fetchDays(currentSlug: FullSlug): Promise<DaysData | null> {
+type DayData = {
+  days: Record<string, { slug: SimpleSlug; thead: string; rows: string[] }>
+  cases: Record<string, SimpleSlug[]>
+}
+let daysCache: Promise<DayData | null> | null = null
+function fetchDays(currentSlug: FullSlug): Promise<DayData | null> {
   if (!daysCache) {
     const url = new URL(
       joinSegments(pathToRoot(currentSlug), "static/bn-days.json"),
@@ -300,7 +305,7 @@ function fetchDays(currentSlug: FullSlug): Promise<DaysData | null> {
     const build = document.querySelector<HTMLMetaElement>('meta[name="bn-build"]')?.content
     if (build) url.searchParams.set("bnv", build.slice(0, 12))
     daysCache = fetch(url, { cache: "no-cache" })
-      .then((r) => (r.ok ? (r.json() as Promise<DaysData>) : Promise.reject()))
+      .then((r) => (r.ok ? (r.json() as Promise<DayData>) : Promise.reject()))
       .catch(() => {
         daysCache = null
         return null
@@ -357,12 +362,13 @@ export type DayRow = {
   row: Element
 }
 
-// 일지 표 데이터(bn-days.json)를 일차 순서대로 읽는다. 행은 페이지에 보이는 HTML 그대로 되살린다
+// 일지 데이터(bn-days.json)를 일차 순서대로 읽는다. 행은 페이지에 보이는 HTML 그대로 되살린다.
+// joined: 사건 주소 → 가담인물 (일지 표 '관련 인물' 칸에는 없지만 그 사건에 있던 사람들)
 async function readDayTables(
   currentSlug: FullSlug,
   data: ContentData,
   resolveLink: (dest: SimpleSlug) => SimpleSlug,
-): Promise<{ thead: Element | null; rows: DayRow[] }> {
+): Promise<{ thead: Element | null; rows: DayRow[]; joined: Record<string, SimpleSlug[]> }> {
   const here = window.location.toString()
   const slugsIn = (cell?: Element) =>
     [...(cell?.querySelectorAll<HTMLElement>("a[data-slug]") ?? [])].map((el) =>
@@ -376,7 +382,8 @@ async function readDayTables(
     if ((rest.textContent ?? "").replace(/[\s,·]/g, "") !== "") return []
     return slugsIn(cell)
   }
-  const days = Object.entries((await fetchDays(currentSlug)) ?? {})
+  const dayData = await fetchDays(currentSlug)
+  const days = Object.entries(dayData?.days ?? {})
     .map(([n, d]) => ({ n: Number(n), ...d }))
     .filter((d) => !Number.isNaN(d.n) && data.has(d.slug))
     .sort((x, y) => x.n - y.n)
@@ -420,7 +427,7 @@ async function readDayTables(
       })
     }
   }
-  return { thead, rows }
+  return { thead, rows, joined: dayData?.cases ?? {} }
 }
 
 // 선을 눌렀을 때: 양 끝이 함께 엮인 📰 사건·🔥 특종·📅 이벤트를 일지와 같은 모양의 표로 보여 준다 (일지 순서).
@@ -437,16 +444,20 @@ export async function showLinkPopup(p: {
   a: SimpleSlug
   b: SimpleSlug
   knownEvents?: SimpleSlug[]
-  // 관련 인물 칸만으로는 못 찾는 행을 더 넣는 조건 (소속 선: 그 조직의 사건 중 이 조직원이 가담한 것)
-  alsoMatch?: (r: DayRow) => boolean
+  // 소속 선일 때: 그 세력이 얽힌 사건 중 이 인물이 `가담인물`로 적힌 것도 넣는다
+  member?: { person: SimpleSlug; faction: SimpleSlug }
 }) {
   const known = new Set(p.knownEvents ?? [])
-  const { thead, rows } = await readDayTables(p.currentSlug, p.data, p.resolveLink)
+  const { thead, rows, joined } = await readDayTables(p.currentSlug, p.data, p.resolveLink)
   const picked = new Map<SimpleSlug, DayRow>()
   for (const r of rows) {
     if (r.kind === "daily" || picked.has(r.id)) continue
-    if (known.has(r.id) || (r.related.has(p.a) && r.related.has(p.b)) || p.alsoMatch?.(r))
-      picked.set(r.id, r)
+    const bothInRow = r.related.has(p.a) && r.related.has(p.b)
+    const joinedHere =
+      !!p.member &&
+      r.related.has(p.member.faction) &&
+      (joined[r.id] ?? []).includes(p.member.person)
+    if (known.has(r.id) || bothInRow || joinedHere) picked.set(r.id, r)
   }
 
   const tbody = document.createElement("tbody")
@@ -477,22 +488,10 @@ export async function showLinkPopup(p: {
   showEdgePopup(p.title, p.kind ? `${p.kind} · ${count}` : count, content)
 }
 
-// 그 노트가 링크한 사건·이벤트. 인물 노트의 `만남 기록`, 세력 노트의 `관련 사건`이 여기 들어온다.
-// 조직이 주체인 사건은 일지 표 '관련 인물' 칸에 조직만 적고 조직원 개인은 적지 않으므로(그래프가 복잡해져서),
-// 개인이 그 사건에 가담했는지는 이 링크로 판단한다.
-export function joinedEvents(
-  data: ContentData,
-  resolveLink: (dest: SimpleSlug) => SimpleSlug,
-  id: SimpleSlug,
-): Set<SimpleSlug> {
-  return new Set((data.get(id)?.links ?? []).map((l) => resolveLink(l)))
-}
-
 // ── 인물·세력 페이지의 사건 기록 표 ──
 
-// 이 인물·세력이 일지 표 '관련 인물' 칸에 있는 행 (나희정은 '입수 경로' 칸이 인물 링크뿐인 행도: 직접 전해 들은 일).
-// 여기에 더해, 이 노트가 링크한 사건(만남 기록·관련 사건)도 넣는다 — 조직이 주체인 사건은 '관련 인물' 칸에
-// 조직만 적히므로 그 칸만 보면 가담한 조직원의 페이지에 그 사건이 빠진다.
+// 이 인물·세력이 일지 표 '관련 인물' 칸에 있는 행 (나희정은 '입수 경로' 칸이 인물 링크뿐인 행도: 직접 전해 들은 일)
+// + 그 사건의 `가담인물`에 이 인물이 있는 행 (조직이 주체라 '관련 인물' 칸에 이름이 없는 경우).
 // ☕ 일상도 넣는다. 일지 순서 그대로 (일차 → 행 순).
 export async function entityDayRows(
   currentSlug: FullSlug,
@@ -500,12 +499,14 @@ export async function entityDayRows(
   resolveLink: (dest: SimpleSlug) => SimpleSlug,
   id: SimpleSlug,
 ): Promise<{ thead: Element | null; rows: DayRow[] }> {
-  const { thead, rows } = await readDayTables(currentSlug, data, resolveLink)
-  const joined = joinedEvents(data, resolveLink, id)
+  const { thead, rows, joined } = await readDayTables(currentSlug, data, resolveLink)
   return {
     thead,
     rows: rows.filter(
-      (r) => r.related.has(id) || joined.has(r.id) || (id === ME && r.sources.length > 0),
+      (r) =>
+        r.related.has(id) ||
+        (joined[r.id] ?? []).includes(id) ||
+        (id === ME && r.sources.length > 0),
     ),
   }
 }

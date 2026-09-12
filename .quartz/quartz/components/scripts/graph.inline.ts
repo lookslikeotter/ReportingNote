@@ -21,7 +21,6 @@ import { FullSlug, SimpleSlug, getFullSlug, resolveRelative, simplifySlug } from
 import { D3Config } from "../Graph"
 import {
   ContentData,
-  DayRow,
   HOVER_EXTRA_WIDTH,
   categoryColor,
   eventLinkColor,
@@ -30,7 +29,6 @@ import {
   factionIndex,
   isInfoNode,
   isPersonNode,
-  joinedEvents,
   linkResolver,
   loadContentIndex,
   nearestLink,
@@ -601,17 +599,11 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   }
 
   // 어떤 선이든 양 끝이 함께 엮인 사건·이벤트 표 (일지 표 관련 인물 칸 기준).
-  // 소속 선은 조직이 주체인 사건도 넣는다: 일지 표에 조직만 적혀 있어도, 그 조직원의 노트가
-  // 그 사건을 링크하고 있으면(만남 기록) 가담한 것으로 본다.
+  // 소속 선은 조직이 주체인 사건도 넣는다: 일지 표에 조직만 적혀 있어도,
+  // 그 사건 노트의 `가담인물`에 이 조직원이 있으면 가담한 것이다.
   function openLinkPopup(ld: LinkData) {
     const { source: a, target: b } = ld
-    let alsoMatch: ((r: DayRow) => boolean) | undefined
-    if (ld.member) {
-      const person = isPersonNode(a.id) ? a.id : b.id
-      const faction = person === a.id ? b.id : a.id
-      const joined = joinedEvents(data, resolveLink, person)
-      alsoMatch = (r) => r.related.has(faction) && joined.has(r.id)
-    }
+    const person = isPersonNode(a.id) ? a.id : b.id
     void showLinkPopup({
       title: `${a.text} ─ ${b.text}`,
       kind: ld.member ? "소속" : ld.relation ? `세력 관계 · ${ld.relation}` : undefined,
@@ -621,7 +613,9 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       a: a.id,
       b: b.id,
       knownEvents: ld.events,
-      alsoMatch,
+      member: ld.member
+        ? { person, faction: person === a.id ? b.id : a.id }
+        : undefined,
     })
   }
 

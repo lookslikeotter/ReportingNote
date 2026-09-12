@@ -242,6 +242,20 @@ foreach ($c in $caseNotes) {
     if (-not $factionCases.ContainsKey($r.Path)) { $factionCases[$r.Path] = @() }
     $factionCases[$r.Path] += $c
   }
+  # 가담인물: 그 사건에 있었지만 관련인물에 넣지 않은 사람 (조직 주체 사건). 일지 표 칸에는 들어가지 않는다
+  foreach ($t in (ListOf $fm '가담인물')) {
+    $lt = LinkTargets $t
+    if ($lt.Count -eq 0) { Err $c.Rel "가담인물 항목이 링크가 아님: $t"; continue }
+    $r = Resolve $lt[0]
+    if (-not $r) { Err $c.Rel "가담인물 [[$($lt[0])]] 노트 없음"; continue }
+    if ($r.Folder -ne "02 인물") { Err $c.Rel "가담인물 [[$($lt[0])]]이 02 인물 노트가 아님"; continue }
+    if ($relPeople -contains $r.Path) { Err $c.Rel "[[$($lt[0])]]이 관련인물과 가담인물에 모두 있음" }
+    else { $relPeople += $r.Path }
+    if (-not (LinksTo $c $r)) { Warn $c.Rel "가담인물 [[$($lt[0])]]이 본문에 링크되어 있지 않음" }
+  }
+  if ((ListOf $fm '가담인물').Count -gt 0 -and (ListOf $fm '관련세력').Count -eq 0) {
+    Warn $c.Rel "가담인물이 있는데 관련세력이 비었음 (조직이 주체인 사건인지 확인)"
+  }
   $src = Scalar $fm '입수경로'
   $srcLinks = LinkTargets $src
   if ($src -ne "" -and $src -ne "직접" -and $srcLinks.Count -eq 0) { Warn $c.Rel "입수경로가 '직접'도 링크도 아님: '$src'" }
