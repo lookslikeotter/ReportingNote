@@ -56,9 +56,6 @@ import {
 
 const INITIAL_ZOOM = 1.5
 
-// 세력 노드는 인물보다 크게 (눈에 먼저 들어오게)
-const FACTION_NODE_SCALE = 2
-
 // 세력 관계 선 모양. 세력 노트의 관계 태그(예: 경쟁/병원)로 세력끼리 잇는다.
 // 관계 종류는 색·굵기만 정한다. 거리는 사건 인연(함께 엮인 사건 수)이 정한다 —
 // 인생서버에서는 적대일수록 오히려 자주 마주치므로, 관계가 나쁘다고 멀리 떨어뜨리지 않는다.
@@ -313,9 +310,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     const numLinks = graphData.links.filter(
       (l) => l.source.id === d.id || l.target.id === d.id,
     ).length
-    const r = 2 + Math.sqrt(numLinks)
-    // 세력 노드는 두 배 크게
-    return d.id.startsWith("03-세력/") ? r * FACTION_NODE_SCALE : r
+    return 2 + Math.sqrt(numLinks)
   }
 
   let hoveredNodeId: string | null = null
