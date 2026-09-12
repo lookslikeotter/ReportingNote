@@ -119,10 +119,14 @@ export function linkResolver(data: ContentData): (dest: SimpleSlug) => SimpleSlu
 
 // ── 사건 인연 선 ──
 
+// 사건 하나가 인연에 더하는 무게. 🔥 특종은 📰 사건의 2배로 센다
+const NEWS_WEIGHT = 1
+const SCOOP_WEIGHT = 2
+
 export type EventPair = {
   source: SimpleSlug
   target: SimpleSlug
-  // 함께 엮인 사건 수 (선 굵기)
+  // 함께 엮인 사건의 무게 합 (선 굵기·색·거리). 사건 수와는 다르다 — 특종이 2로 세어진다
   weight: number
   // 그 사건 노트들
   events: SimpleSlug[]
@@ -158,20 +162,21 @@ export async function tableEventPairs(
         if (s !== ME && isParticipant(s)) rowPairs.set(pairKey(ME, s), [ME, s])
       }
     }
+    const w = r.kind === "scoop" ? SCOOP_WEIGHT : NEWS_WEIGHT
     for (const [key, [a, b]] of rowPairs) {
       const pair = pairs.get(key)
       if (pair) {
-        pair.weight++
+        pair.weight += w
         pair.events.push(eventId)
       } else {
-        pairs.set(key, { source: a, target: b, weight: 1, events: [eventId] })
+        pairs.set(key, { source: a, target: b, weight: w, events: [eventId] })
       }
     }
   }
   return pairs
 }
 
-// 사건 인연 선 모양 (weight = 함께 엮인 사건 수)
+// 사건 인연 선 모양 (weight = 함께 엮인 사건의 무게 합. 📰 사건 1 · 🔥 특종 2)
 //   굵기: 1건 EVENT_MIN_WIDTH에서 1건마다 EVENT_WIDTH_STEP씩 굵어져 EVENT_MAX_WIDTH에서 멈춘다
 //   색: 굵기와 같은 속도로 --gray에서 --dark로 진해져, 굵기가 상한에 닿는 건수에서 가장 진해진다
 const EVENT_MIN_WIDTH = 0.4
