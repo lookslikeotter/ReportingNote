@@ -43,7 +43,10 @@ import {
 // 인물 그래프와 함께 쓰는 규칙은 bongnudo.ts. 원래 Quartz 그래프와 다른 점:
 //   - 노드는 인물·세력·장소만. 색은 분류 태그, 지금 페이지는 테두리
 //   - 이름표는 처음부터 보이고, 확대·축소해도 화면에서 글자 크기가 그대로다
-//   - 선은 세 가지뿐: 소속 점선(인물 ↔ 소속 세력), 세력 관계 선(관계 태그), 사건 인연 선(일지 표 📰·🔥 행 관련 인물 칸에 함께 적힌 인물끼리).
+//   - 선은 세 가지뿐: 소속 점선(인물 ↔ 소속 세력), 세력 관계 선(관계 태그), 사건 인연 선(일지 표 📰·🔥 행
+//     관련 인물 칸에 함께 적힌 노드끼리 — 인물·세력 모두). 한 쌍에는 선을 하나만 긋는다
+//     (소속·세력 관계가 있으면 그쪽이 우선하고, 세력 관계 선은 사건 건수를 이어받아 거리에 쓴다)
+//   - 거리는 언제나 사건 인연이 정한다. 관계 종류는 색·굵기만 정한다 (적대라고 멀어지지 않는다)
 //     본문 링크는 어떤 노드를 보여 줄지(이웃 계산)에만 쓰고 선으로 그리지 않는다
 //   - 선에 마우스를 올리면 하이라이트, 누르면 창 (사건 표 · 소속 · 세력 관계)
 //   - 사이드바 그래프는 INITIAL_ZOOM 배율로 확대해서 시작한다 (전체 그래프는 원래 배율)
@@ -51,12 +54,13 @@ import {
 const INITIAL_ZOOM = 1.5
 
 // 세력 관계 선 모양. 세력 노트의 관계 태그(예: 경쟁/병원)로 세력끼리 잇는다.
-// distance는 기본 선 길이에 곱하는 값 (동맹은 가깝게, 적대는 멀리 배치)
-const RELATION_STYLES: Record<string, { color: string; width: number; distance: number }> = {
-  동맹: { color: "#1aae39", width: 2.5, distance: 0.8 },
-  협력: { color: "#0075de", width: 2, distance: 1.2 },
-  경쟁: { color: "#dd5b00", width: 2, distance: 1.8 },
-  적대: { color: "#e03131", width: 3, distance: 2.6 },
+// 관계 종류는 색·굵기만 정한다. 거리는 사건 인연(함께 엮인 사건 수)이 정한다 —
+// 인생서버에서는 적대일수록 오히려 자주 마주치므로, 관계가 나쁘다고 멀리 떨어뜨리지 않는다.
+const RELATION_STYLES: Record<string, { color: string; width: number }> = {
+  동맹: { color: "#1aae39", width: 2.5 },
+  협력: { color: "#0075de", width: 2 },
+  경쟁: { color: "#dd5b00", width: 2 },
+  적대: { color: "#e03131", width: 3 },
 }
 const RELATION_TAG = /^(동맹|협력|경쟁|적대)\/(.+)$/
 
@@ -155,8 +159,14 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     }
   }
 
+  // 사건 인연 선: 일지 표 📰·🔥 행의 관련 인물 칸에 함께 적힌 노드끼리 (인물·세력 모두).
+  // 이웃 계산에도 넣어서, 사건으로 엮인 상대가 그 페이지 그래프에 보이게 한다
+  const eventLinks = await tableEventPairs(fullSlug, data, resolveLink, isInfoNode)
+  for (const l of eventLinks.values()) links.push({ source: l.source, target: l.target })
+
   // 세력 관계 선: 세력 노트의 관계 태그(동맹/·협력/·경쟁/·적대/ + 상대 세력 이름)로 잇는다.
   // 관계 태그가 없으면 세력끼리는 선을 긋지 않는다. 양쪽에 모두 적혀 있으면 한 번만 긋는다.
+  // 그 쌍에 사건 인연이 있으면 건수를 함께 들고 가서, 거리와 선을 누른 표에 쓴다.
   const relationPairs = new Map<string, SimpleLinkData>()
   for (const [id, details] of data.entries()) {
     if (!id.startsWith("03-세력/")) continue
@@ -167,17 +177,19 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       if (!other || other === id) continue
       const key = pairKey(id, other)
       if (relationPairs.has(key)) continue
-      const link = { source: id, target: other, relation: m[1] }
+      const ev = eventLinks.get(key)
+      const link = {
+        source: id,
+        target: other,
+        relation: m[1],
+        weight: ev?.weight,
+        events: ev?.events,
+      }
       relationPairs.set(key, link)
       // 세력 페이지에서 관계 세력도 이웃으로 보이게
       links.push(link)
     }
   }
-
-  // 사건 인연 선: 일지 표 📰·🔥 행의 관련 인물 칸에 함께 적힌 인물끼리.
-  // 이웃 계산에도 넣어서, 사건으로 엮인 인물이 그 인물 페이지 그래프에 보이게 한다
-  const eventLinks = await tableEventPairs(fullSlug, data, resolveLink, isPersonNode)
-  for (const l of eventLinks.values()) links.push({ source: l.source, target: l.target })
 
   const neighbourhood = new Set<SimpleSlug>()
   if (depth >= 0) {
@@ -211,10 +223,14 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   }))
   const nodeById = new Map(nodes.map((n) => [n.id, n]))
 
+  // 한 쌍에 선은 하나만: 소속 점선이나 세력 관계 선이 이미 있으면 사건 인연 선을 따로 긋지 않는다
+  // (세력 관계 선은 위에서 사건 건수를 이어받았다)
   const drawnLinks: SimpleLinkData[] = [
     ...links.filter((l) => l.member),
     ...relationPairs.values(),
-    ...eventLinks.values(),
+    ...[...eventLinks.entries()]
+      .filter(([key]) => !memberPairs.has(key) && !relationPairs.has(key))
+      .map(([, l]) => l),
   ]
   const graphData: { nodes: NodeData[]; links: LinkData[] } = {
     nodes,
@@ -237,11 +253,11 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
         (l: LinkData) => linkDistance / (1 + 0.3 * ((l.weight ?? 1) - 1)),
       ),
     )
-    // 세력 관계: 관계 종류에 따라 거리를 둔다 (동맹 가깝게 … 적대 멀리)
+    // 세력 관계: 거리는 사건 인연과 같은 규칙 (관계 종류는 색·굵기만 정한다)
     .force(
       "relation",
       forceLink(graphData.links.filter((l) => l.relation))
-        .distance((l: LinkData) => linkDistance * (RELATION_STYLES[l.relation!]?.distance ?? 1))
+        .distance((l: LinkData) => linkDistance / (1 + 0.3 * ((l.weight ?? 1) - 1)))
         .strength(0.7),
     )
     // 소속: 더 세게, 더 가깝게 당긴다 (세력 주위에 소속 인물이 모이게)
