@@ -322,7 +322,8 @@ foreach ($p in $people) {
   $cls = @($tags | Where-Object { $classTags -contains $_ })
   if ($cls.Count -ne 1) { Err $p.Rel "분류 태그(시민·기관·갱)가 정확히 하나여야 함: $($cls -join ', ')" }
   foreach ($t in $tags) {
-    if ($t -eq "인물" -or $classTags -contains $t) { continue }
+    # 인물·분류 태그와 테스트 표시 태그는 조직 태그가 아니다
+    if ($t -eq "인물" -or $t -eq "테스트" -or $classTags -contains $t) { continue }
     if ($factionByNorm.ContainsKey((NormName $t))) { $orgOf[$p.Path] = $factionByNorm[(NormName $t)].Path }
     else { Warn $p.Rel "조직 태그 '$t'에 맞는 세력 노트가 없음 (소속 점선이 그려지지 않음)" }
   }
@@ -375,5 +376,11 @@ foreach ($a in ($notes | Where-Object { $_.Folder -match '^05 취재·기사' -a
 foreach ($e in $script:Errors) { Write-Output $e }
 foreach ($w in $script:Warnings) { Write-Output $w }
 Write-Output ("검사 끝: 노트 {0}개, 일지 {1}개, 사건 {2}개, 인물 {3}명, 세력 {4}개 — 오류 {5}, 경고 {6}" -f $notes.Count, $days.Count, @($caseNotes).Count, @($people).Count, @($factions).Count, $script:Errors.Count, $script:Warnings.Count)
+# 테스트 태그가 붙은 노트 (테스트가 끝나면 지울 것들)
+$testNotes = @($notes | Where-Object { (ListOf $_.Front 'tags') -contains "테스트" })
+if ($testNotes.Count -gt 0) {
+  Write-Output ("테스트 노트 {0}개 (테스트가 끝나면 지운다):" -f $testNotes.Count)
+  foreach ($t in ($testNotes | Sort-Object Rel)) { Write-Output ("  " + $t.Rel) }
+}
 if ($script:Errors.Count -gt 0) { exit 1 }
 exit 0
