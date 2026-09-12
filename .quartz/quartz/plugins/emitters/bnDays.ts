@@ -7,8 +7,9 @@ import { write } from "./helpers"
 // 봉누도2 — 일지 데이터 이미터. 원본은 볼트의 .quartz/quartz/plugins/emitters/bnDays.ts (빌드 때 Quartz에 복사).
 // 빌드 때 static/bn-days.json 하나를 내보낸다:
 //   {
-//     "days":  { "3": { slug, thead, rows[] } },        // 일지(01 일지/N일차) 페이지의 첫 표
-//     "cases": { "01-일지/사건/3일차/3일차-02-…": [인물 주소…] }  // 사건 노트의 가담인물
+//     "days":     { "3": { slug, thead, rows[] } },        // 일지(01 일지/N일차) 페이지의 첫 표
+//     "cases":    { "01-일지/사건/3일차/3일차-02-…": [인물 주소…] },  // 사건 노트의 가담인물
+//     "factions": { "03-세력/갱/텍사스": "#e03131" }          // 세력 색 (분류 기본값 또는 `색` 속성)
 //   }
 // 그래프 선·선을 누르면 뜨는 창·인물 페이지 사건 기록 표(components/scripts/bongnudo.ts)가 이 파일을 읽는다.
 // 행 HTML은 페이지에 보이는 것과 같다 (링크의 data-slug, 등급 이름표 bn-lv-* 포함).
@@ -18,6 +19,17 @@ import { write } from "./helpers"
 
 const DAY_SLUG = /^01-일지\/(\d+)일차$/
 const WIKILINK = /^\s*\[\[([^\]|#]+)/
+
+// 세력 색: 분류별 기본값. 세력 노트에 `색: "#rrggbb"`를 적으면 그 세력만 따로 정할 수 있다.
+// 인물 링크 앞 동그라미는 그 인물이 속한 세력의 색을 쓴다 (components/scripts/bongnudo.ts decorateLinks)
+const FACTION_COLORS: Record<string, string> = {
+  기관: "#0075de", // 파랑
+  갱: "#e03131", // 빨강
+  사업체: "#dfab01", // 노랑
+}
+// 그 밖의 조직(시민 단체 등)과 소속 없는 시민
+const OTHER_COLOR = "#1aae39" // 초록
+const COLOR_OK = /^#[0-9a-fA-F]{3,8}$/
 
 type DayTable = { slug: SimpleSlug; thead: string; rows: string[] }
 
@@ -54,8 +66,18 @@ export const BnDays: QuartzEmitterPlugin = () => ({
 
     const days: Record<string, DayTable> = {}
     const cases: Record<string, SimpleSlug[]> = {}
+    const factions: Record<string, string> = {}
     for (const [tree, file] of content) {
       const slug = simplifySlug(file.data.slug!)
+
+      // 세력 색
+      if (slug.startsWith("03-세력/") && slug !== "03-세력/세력-목록") {
+        const fm = file.data.frontmatter ?? {}
+        const custom = typeof fm["색"] === "string" ? fm["색"].trim() : ""
+        factions[slug] = COLOR_OK.test(custom)
+          ? custom
+          : (FACTION_COLORS[String(fm["분류"] ?? "")] ?? OTHER_COLOR)
+      }
 
       // 일지 페이지: 첫 표가 일지 표
       const day = slug.match(DAY_SLUG)
@@ -89,7 +111,7 @@ export const BnDays: QuartzEmitterPlugin = () => ({
 
     yield write({
       ctx,
-      content: JSON.stringify({ days, cases }),
+      content: JSON.stringify({ days, cases, factions }),
       slug: "static/bn-days" as FullSlug,
       ext: ".json",
     })

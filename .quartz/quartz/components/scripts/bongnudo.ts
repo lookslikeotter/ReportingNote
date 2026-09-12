@@ -29,25 +29,32 @@ export async function loadContentData(): Promise<ContentData> {
   )
 }
 
-// 인물·세력 링크 앞에 분류 칩을 붙인다: 인물은 분류 태그 색 점(bn-cat-*, 그래프 노드 색과 같음), 세력은 네모(bn-fac). 모양은 custom.scss
-export function decorateLinks(
+// 인물·세력 링크 앞에 소속 색 표시를 붙인다 — 인물은 동그라미, 세력은 네모 (모양은 custom.scss).
+// 색은 그 세력의 색 (bn-days.json의 factions: 분류별 기본값 또는 세력 노트의 `색` 속성).
+// 소속이 없는 인물은 분류 태그 색을 쓴다.
+export async function decorateLinks(
   root: ParentNode,
   data: ContentData,
   resolveLink: (dest: SimpleSlug) => SimpleSlug,
+  currentSlug: FullSlug,
 ) {
+  const colors = (await fetchDays(currentSlug))?.factions ?? {}
+  const factions = factionIndex(data)
   for (const a of root.querySelectorAll<HTMLAnchorElement>("a[data-slug]")) {
     const id = resolveLink(simplifySlug(a.dataset.slug as FullSlug))
     if (!isInfoNode(id) || a.classList.contains("bn-chip")) continue
     const tags = data.get(id)?.tags ?? []
-    const cat = tags.includes("갱")
-      ? "gang"
-      : tags.includes("기관")
-        ? "org"
-        : tags.includes("시민")
-          ? "civ"
-          : null
-    if (cat) a.classList.add("bn-chip", `bn-cat-${cat}`)
-    else if (id.startsWith("03-세력/")) a.classList.add("bn-chip", "bn-fac")
+    let color = ""
+    if (id.startsWith("03-세력/")) {
+      color = colors[id] ?? ""
+      a.classList.add("bn-chip", "bn-fac")
+    } else if (id.startsWith("02-인물/")) {
+      // 조직 태그와 이름이 같은 세력을 찾아 그 색을 쓴다
+      const org = tags.map(normalizeName).map((t) => factions.get(t)).find((s) => s)
+      color = (org ? colors[org] : undefined) ?? categoryColor(tags, "")
+      a.classList.add("bn-chip")
+    } else continue
+    if (color) a.style.setProperty("--bn-chip", color)
   }
 }
 
@@ -298,6 +305,7 @@ function eventSummary(details: ContentDetails | undefined): string {
 type DayData = {
   days: Record<string, { slug: SimpleSlug; thead: string; rows: string[] }>
   cases: Record<string, SimpleSlug[]>
+  factions: Record<string, string>
 }
 let daysCache: Promise<DayData | null> | null = null
 function fetchDays(currentSlug: FullSlug): Promise<DayData | null> {
@@ -480,7 +488,7 @@ export async function showLinkPopup(p: {
     content = document.createElement("div")
     content.className = "bn-case-table"
     content.append(table)
-    decorateLinks(content, p.data, p.resolveLink)
+    await decorateLinks(content, p.data, p.resolveLink, p.currentSlug)
   } else {
     content = document.createElement("div")
     content.className = "bn-edge-empty"

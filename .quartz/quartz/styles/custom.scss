@@ -698,7 +698,9 @@ body[data-slug="01-일지/사건-목록"] article table,
   }
 }
 
-// ── 인물·세력 링크 칩 (LinkChips / bongnudo.ts decorateLinks): 인물은 분류 색 점, 세력은 네모 ──
+// ── 인물·세력 링크 앞 소속 표시 (LinkChips / bongnudo.ts decorateLinks) ──
+// 인물은 동그라미, 세력은 네모. 색(--bn-chip)은 스크립트가 그 세력의 색으로 채운다
+// (분류별 기본값: 기관 파랑 · 갱 빨강 · 사업체 노랑 · 그 밖 초록. 세력 노트의 `색` 속성으로 따로 정할 수 있다)
 a.internal.bn-chip {
   display: inline-flex;
   align-items: center;
@@ -714,18 +716,9 @@ a.internal.bn-chip {
     background-color: var(--bn-chip, var(--gray));
     flex: none;
   }
-  &.bn-cat-org {
-    --bn-chip: #0075de;
-  }
-  &.bn-cat-civ {
-    --bn-chip: #1aae39;
-  }
-  &.bn-cat-gang {
-    --bn-chip: #e03131;
-  }
+  // 세력은 네모
   &.bn-fac::before {
     border-radius: 2px;
-    background-color: var(--darkgray);
   }
 }
 
