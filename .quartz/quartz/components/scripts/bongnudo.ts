@@ -172,21 +172,21 @@ export async function tableEventPairs(
 }
 
 // 사건 인연 선 모양 (weight = 함께 엮인 사건 수)
-//   1건: 아주 얇은 선 → 1건마다 조금씩 굵어져 EVENT_MAX_WIDTH까지 (6건)
-//   그다음부터는 굵기는 그대로, 색이 조금씩 진해져 EVENT_DARKEN_STEPS건 뒤(12건) 가장 진한 색(--dark, 라이트 모드 검정)
-const EVENT_MIN_WIDTH = 0.5
-const EVENT_WIDTH_STEP = 0.3
+//   굵기: 1건 EVENT_MIN_WIDTH에서 1건마다 EVENT_WIDTH_STEP씩 굵어져 EVENT_MAX_WIDTH에서 멈춘다
+//   색: 굵기와 같은 속도로 --gray에서 --dark로 진해져, 굵기가 상한에 닿는 건수에서 가장 진해진다
+const EVENT_MIN_WIDTH = 0.4
+const EVENT_WIDTH_STEP = 0.1
 const EVENT_MAX_WIDTH = 2
-const EVENT_DARKEN_STEPS = 6
+// 굵기가 상한에 닿는 사건 수 (0.4 + 0.1×16 = 2.0 → 17건)
+const EVENT_MAX_AT = 1 + (EVENT_MAX_WIDTH - EVENT_MIN_WIDTH) / EVENT_WIDTH_STEP
 
 export function eventLinkWidth(weight: number): number {
   return Math.min(EVENT_MIN_WIDTH + EVENT_WIDTH_STEP * (weight - 1), EVENT_MAX_WIDTH)
 }
 
-// base(연한 선 색)에서 darkest(가장 진한 색)로, 굵기가 최대가 된 뒤부터 조금씩
+// base(연한 선 색)에서 darkest(가장 진한 색)로, 굵기와 같은 속도로
 export function eventLinkColor(weight: number, base: string, darkest: string): string {
-  const maxAt = 1 + (EVENT_MAX_WIDTH - EVENT_MIN_WIDTH) / EVENT_WIDTH_STEP
-  const t = Math.max(0, Math.min(1, (weight - maxAt) / EVENT_DARKEN_STEPS))
+  const t = Math.max(0, Math.min(1, (weight - 1) / (EVENT_MAX_AT - 1)))
   return mixColor(base, darkest, t)
 }
 
