@@ -1,5 +1,12 @@
 import type { ContentDetails } from "../../plugins/emitters/contentIndex"
-import { FullSlug, SimpleSlug, resolveRelative, simplifySlug } from "../../util/path"
+import {
+  FullSlug,
+  SimpleSlug,
+  joinSegments,
+  pathToRoot,
+  resolveRelative,
+  simplifySlug,
+} from "../../util/path"
 
 // 봉누도2 — 그래프 스크립트 두 개가 함께 쓰는 규칙과 도구.
 //   graph.inline.ts: 오른쪽 아래 그래프와 전체 그래프 / peopleGraph.inline.ts: 인물 그래프
@@ -247,25 +254,29 @@ function eventSummary(details: ContentDetails | undefined): string {
   return (m?.[1] ?? "").trim()
 }
 
-// 일지 페이지(N일차) HTML. 브라우저 캐시에 옛 표가 남지 않게 매번 서버에 확인하고(no-cache),
-// 페이지를 여는 동안은 받은 것을 다시 쓴다. 실패는 기억하지 않는다 (다음에 다시 시도)
-const dayPageCache = new Map<string, Promise<Document | null>>()
-function fetchDayPage(url: string): Promise<Document | null> {
-  let p = dayPageCache.get(url)
-  if (!p) {
-    p = fetch(url, { cache: "no-cache" })
-      .then((r) => (r.ok ? r.text() : Promise.reject()))
-      .then((html) => new DOMParser().parseFromString(html, "text/html"))
+// 일지 표 데이터: 빌드 때 plugins/emitters/bnDays.ts가 만든 static/bn-days.json (일차 → 일지 주소·머리줄·행 HTML).
+// 한 번 받아 페이지를 여는 동안 다시 쓰고, 자동 갱신으로 새 기록이 오면 버린다. 실패는 기억하지 않는다 (다음에 다시 시도)
+type DaysData = Record<string, { slug: SimpleSlug; thead: string; rows: string[] }>
+let daysCache: Promise<DaysData | null> | null = null
+function fetchDays(currentSlug: FullSlug): Promise<DaysData | null> {
+  if (!daysCache) {
+    const url = new URL(
+      joinSegments(pathToRoot(currentSlug), "static/bn-days.json"),
+      window.location.toString(),
+    )
+    // 배포 직후 앞단 캐시(CDN)가 옛 파일을 주지 않게, 페이지에 적힌 기록 버전을 주소에 붙인다 (liveUpdate.inline.ts와 같은 방식)
+    const build = document.querySelector<HTMLMetaElement>('meta[name="bn-build"]')?.content
+    if (build) url.searchParams.set("bnv", build.slice(0, 12))
+    daysCache = fetch(url, { cache: "no-cache" })
+      .then((r) => (r.ok ? (r.json() as Promise<DaysData>) : Promise.reject()))
       .catch(() => {
-        dayPageCache.delete(url)
+        daysCache = null
         return null
       })
-    dayPageCache.set(url, p)
   }
-  return p
+  return daysCache
 }
-// 자동 갱신으로 새 기록이 오면 받아 둔 일지 페이지를 버린다
-document.addEventListener("bn-content-updated", () => dayPageCache.clear())
+document.addEventListener("bn-content-updated", () => (daysCache = null))
 
 // 일지 표 머리줄 (일지 페이지를 못 읽었을 때만 쓴다)
 function defaultHead(): HTMLElement {
@@ -314,7 +325,7 @@ export type DayRow = {
   row: Element
 }
 
-// 모든 일지 페이지의 표를 일차 순서대로 읽는다
+// 일지 표 데이터(bn-days.json)를 일차 순서대로 읽는다. 행은 페이지에 보이는 HTML 그대로 되살린다
 async function readDayTables(
   currentSlug: FullSlug,
   data: ContentData,
@@ -333,17 +344,17 @@ async function readDayTables(
     if ((rest.textContent ?? "").replace(/[\s,·]/g, "") !== "") return []
     return slugsIn(cell)
   }
-  const days = [...data.keys()]
-    .map((id) => ({ id, n: Number(id.match(/^01-일지\/(\d+)일차$/)?.[1] ?? NaN) }))
-    .filter((d) => !Number.isNaN(d.n))
+  const days = Object.entries((await fetchDays(currentSlug)) ?? {})
+    .map(([n, d]) => ({ n: Number(n), ...d }))
+    .filter((d) => !Number.isNaN(d.n) && data.has(d.slug))
     .sort((x, y) => x.n - y.n)
 
   let thead: Element | null = null
   const rows: DayRow[] = []
-  for (const { id: day, n: dayN } of days) {
+  for (const { n: dayN, slug: day, thead: theadHtml, rows: rowHtmls } of days) {
     const dayUrl = new URL(resolveRelative(currentSlug, day), here).toString()
-    const table = (await fetchDayPage(dayUrl))?.querySelector("article table")
-    if (!table) continue
+    const table = document.createElement("table")
+    table.innerHTML = theadHtml + "<tbody>" + rowHtmls.join("") + "</tbody>"
     const heads = [...table.querySelectorAll("thead th")].map((th) => th.textContent ?? "")
     const eventCol = heads.findIndex((h) => h.includes("사건"))
     const relatedCol = heads.findIndex((h) => h.includes("관련"))
@@ -362,7 +373,7 @@ async function readDayTables(
           : tr.querySelector(".bn-lv-event")
             ? "event"
             : "daily"
-      const row = document.importNode(tr, true)
+      const row = tr.cloneNode(true) as Element
       row.querySelectorAll("a[href]").forEach((a) => {
         a.setAttribute("href", new URL(a.getAttribute("href")!, dayUrl).toString())
       })

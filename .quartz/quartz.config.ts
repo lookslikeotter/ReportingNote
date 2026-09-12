@@ -1,5 +1,6 @@
 import { QuartzConfig } from "./quartz/cfg"
 import * as Plugin from "./quartz/plugins"
+import { BnDays } from "./quartz/plugins/emitters/bnDays"
 
 /**
  * 봉누도2 — 나희정의 취재수첩 (Quartz v4.5.2 설정)
@@ -88,6 +89,8 @@ const config: QuartzConfig = {
       Plugin.Static(),
       Plugin.Favicon(),
       Plugin.NotFoundPage(),
+      // 봉누도2: 일지 표 데이터 (static/bn-days.json) — 그래프 선·선 창·사건 기록 표가 읽는다
+      BnDays(),
     ],
   },
 }
