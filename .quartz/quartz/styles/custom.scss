@@ -348,9 +348,15 @@ td > code {
 
 // 행 맨 왼쪽 끝에 등급 색 띠. 회청·주황·보라 — 인물 분류 색(기관 파랑·시민 초록·갱 빨강)과 겹치지 않게 고른 색
 :root {
-  --bn-news-bar: #5b6b8a;
+  // 표 왼쪽 띠는 옅게 (이벤트 보라·특종 주황과 붙어 있어도 서로 구분되게)
+  --bn-news-bar: #9db0cc;
   --bn-scoop-bar: #f0a020;
   --bn-event-bar: #8b5cf6;
+  // 📰 배지 글자색은 띠보다 진하게 (옅은 색은 글자로 읽기 어렵다)
+  --bn-news-ink: #5b6b8a;
+}
+:root[saved-theme="dark"] {
+  --bn-news-ink: #8a9bbb;
 }
 
 // 📰 사건 — 파랑
@@ -619,37 +625,43 @@ article table,
   font-size: 15px;
 }
 
-// ── 일지 표 (일지·첫 화면·사건 목록 페이지의 표, 사건 기록 표) ──
+// ── 일지 표 (일지·첫 화면·사건 목록 페이지의 표, 그래프 선 창, 사건 기록 표) ──
+// 칸: 시간 | 사건 | 요약 | 관련 인물 | 입수 경로.
+// 사건 기록 표(인물·세력 페이지)만 앞에 '일차' 칸이 하나 더 있어서(.bn-has-day) 칸 규칙을 한 칸씩 민다.
+// 시간만 줄바꿈을 막고, 나머지는 모두 줄을 바꾼다 (한 칸이 길어져 옆 칸을 밀어내지 않게).
+@mixin bn-day-cols($o: 0) {
+  // 시간: 줄바꿈 없이, 숫자 폭 고정
+  & td:nth-child(#{1 + $o}) {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  // 사건: 굵게. 좁은 화면에서 세로로 길어지지 않게 최소 너비를 준다
+  & td:nth-child(#{2 + $o}) {
+    min-width: 8em;
+  }
+  & td:nth-child(#{2 + $o}) a {
+    font-weight: 600;
+  }
+  // 요약이 남는 너비를 가져간다
+  & td:nth-child(#{3 + $o}) {
+    width: 100%;
+    min-width: 12em;
+  }
+  // 관련 인물·입수 경로: 길어지면 옆으로 늘어나지 말고 줄을 바꾼다
+  & td:nth-child(#{4 + $o}) {
+    max-width: 22em;
+  }
+  & td:nth-child(#{5 + $o}) {
+    max-width: 14em;
+  }
+}
+
 body[data-slug$="일차"] article table,
 body[data-slug="index"] article table,
 body[data-slug="01-일지/사건-목록"] article table,
 .bn-case-table table {
   width: 100%;
-
-  // 시간 칸: 줄바꿈 없이, 숫자 폭 고정
-  & td:first-child,
-  & th:first-child {
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-
-  // 사건 칸: 굵게, 줄바꿈 없이
-  & td:nth-child(2) a {
-    font-weight: 600;
-  }
-  & td:nth-child(2) {
-    white-space: nowrap;
-  }
-
-  // 관련 인물·입수 경로 칸은 내용만큼, 요약 칸이 남는 너비를 쓴다
-  & td:nth-child(4),
-  & td:nth-child(5) {
-    white-space: nowrap;
-  }
-  & td:nth-child(3) {
-    width: 100%;
-    min-width: 12em;
-  }
+  @include bn-day-cols(0);
 
   // 행에 마우스를 올리면 옅은 배경
   & tbody tr:hover > td {
@@ -661,28 +673,19 @@ body[data-slug="01-일지/사건-목록"] article table,
     background-color: rgba(240, 160, 32, 0.07);
   }
 }
-// 사건 기록 표는 일차 칸이 앞에 하나 더 있다
-.bn-case-table table {
-  & td:nth-child(2) {
-    font-weight: 400;
-    white-space: nowrap;
-  }
-  & td:nth-child(3) a {
-    font-weight: 600;
-  }
-  & td:nth-child(3) {
+
+// 사건 기록 표: '일차' 칸이 앞에 하나 더 있다. 위 규칙을 지우고 한 칸씩 밀어서 다시 건다
+.bn-case-table.bn-has-day table {
+  & td:nth-child(n) {
     width: auto;
     min-width: 0;
-    white-space: nowrap;
-  }
-  & td:nth-child(4) {
-    width: 100%;
-    min-width: 12em;
+    max-width: none;
     white-space: normal;
   }
-  & td:nth-child(6) {
+  & td:nth-child(1) {
     white-space: nowrap;
   }
+  @include bn-day-cols(1);
 }
 
 // ── 인물·세력 링크 칩 (LinkChips / bongnudo.ts decorateLinks): 인물은 분류 색 점, 세력은 네모 ──
@@ -758,7 +761,7 @@ a.internal.bn-chip {
 
   // 취재가치
   &[data-v="📰 사건"] {
-    --b: var(--bn-news-bar);
+    --b: var(--bn-news-ink);
   }
   &[data-v="🔥 특종"] {
     --b: #c77800;
@@ -804,10 +807,6 @@ a.internal.bn-chip {
     background-color: transparent;
   }
 }
-:root[saved-theme="dark"] .bn-badge[data-v="📰 사건"] {
-  --b: #8a9bbb;
-}
-
 // ── 일차 이동 (DayNav.tsx) ──
 .bn-daynav {
   display: flex;

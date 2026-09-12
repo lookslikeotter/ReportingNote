@@ -52,7 +52,8 @@ async function fillTable(section: HTMLElement, fullSlug: FullSlug) {
   const table = document.createElement("table")
   table.append(head, body)
   const wrap = document.createElement("div")
-  wrap.className = "table-container bn-case-table"
+  // bn-has-day: 맨 앞에 '일차' 칸이 하나 더 있다 (custom.scss가 칸 규칙을 한 칸씩 민다)
+  wrap.className = "table-container bn-case-table bn-has-day"
   wrap.append(table)
   decorateLinks(wrap, data, resolveLink)
   if (status) status.replaceWith(wrap)
