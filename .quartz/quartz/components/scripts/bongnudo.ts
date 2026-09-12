@@ -298,7 +298,10 @@ function fallbackRow(details: ContentDetails | undefined, href: string): HTMLEle
 }
 
 // 일지 표(N일차)의 행 하나
-type DayRow = {
+export type DayRow = {
+  // 행이 실린 일지(01-일지/N일차)와 그 일차 숫자
+  day: SimpleSlug
+  dayN: number
   // 행의 사건·이벤트 노트
   id: SimpleSlug
   // 행의 등급 이름표(bn-lv-*): 없음 daily(☕) · news(📰) · scoop(🔥) · event(📅)
@@ -337,7 +340,7 @@ async function readDayTables(
 
   let thead: Element | null = null
   const rows: DayRow[] = []
-  for (const { id: day } of days) {
+  for (const { id: day, n: dayN } of days) {
     const dayUrl = new URL(resolveRelative(currentSlug, day), here).toString()
     const table = (await fetchDayPage(dayUrl))?.querySelector("article table")
     if (!table) continue
@@ -364,6 +367,8 @@ async function readDayTables(
         a.setAttribute("href", new URL(a.getAttribute("href")!, dayUrl).toString())
       })
       rows.push({
+        day,
+        dayN,
         id,
         kind,
         related: new Set(slugsIn(cells[relatedCol])),
@@ -411,7 +416,7 @@ export async function showLinkPopup(p: {
     const table = document.createElement("table")
     table.append(thead ? document.importNode(thead, true) : defaultHead(), tbody)
     content = document.createElement("div")
-    content.className = "bn-edge-table"
+    content.className = "bn-case-table"
     content.append(table)
   } else {
     content = document.createElement("div")
@@ -423,4 +428,21 @@ export async function showLinkPopup(p: {
   const caseCount = tbody.children.length - eventCount
   const count = `함께 엮인 사건 ${caseCount}건` + (eventCount > 0 ? ` · 이벤트 ${eventCount}건` : "")
   showEdgePopup(p.title, p.kind ? `${p.kind} · ${count}` : count, content)
+}
+
+// ── 인물·세력 페이지의 사건 기록 표 ──
+
+// 이 인물·세력이 일지 표 '관련 인물' 칸에 있는 행 (나희정은 '입수 경로' 칸이 인물 링크뿐인 행도: 직접 전해 들은 일).
+// ☕ 일상도 넣는다. 일지 순서 그대로 (일차 → 행 순).
+export async function entityDayRows(
+  currentSlug: FullSlug,
+  data: ContentData,
+  resolveLink: (dest: SimpleSlug) => SimpleSlug,
+  id: SimpleSlug,
+): Promise<{ thead: Element | null; rows: DayRow[] }> {
+  const { thead, rows } = await readDayTables(currentSlug, data, resolveLink)
+  return {
+    thead,
+    rows: rows.filter((r) => r.related.has(id) || (id === ME && r.sources.length > 0)),
+  }
 }

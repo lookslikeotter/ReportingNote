@@ -79,9 +79,10 @@ const config: QuartzConfig = {
       Plugin.ContentPage(),
       Plugin.FolderPage(),
       Plugin.TagPage(),
+      // RSS는 실제 날짜가 나가므로 끈다
       Plugin.ContentIndex({
         enableSiteMap: true,
-        enableRSS: true,
+        enableRSS: false,
       }),
       Plugin.Assets(),
       Plugin.Static(),

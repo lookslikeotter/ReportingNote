@@ -52,6 +52,13 @@ jobs:
         working-directory: quartz
         run: npm ci
 
+      # 기록 검사 (.github/scripts/check.ps1): 사건 노트 ↔ 일지 표 ↔ 인물·세력 목록이 서로 맞는지.
+      # 어긋나도 배포는 막지 않고 여기 기록에만 남긴다 (Claude가 커밋 전에 같은 검사를 돌린다)
+      - name: Check notes
+        continue-on-error: true
+        shell: pwsh
+        run: ./notes/.github/scripts/check.ps1 -Vault notes
+
       - name: Prepare content and config
         run: |
           rm -rf quartz/content
@@ -60,8 +67,10 @@ jobs:
             --exclude '.git' --exclude '.github' --exclude '.quartz' --exclude '.obsidian' \
             --exclude 'CLAUDE.md' --exclude '99 템플릿' --exclude '.gitignore' \
             notes/ quartz/content/
-          # 사이트 첫 화면 = 0일차 일지 (제목을 붙여 index.md로 복사)
-          { echo '---'; echo 'title: 0일차'; tail -n +2 "notes/01 일지/0일차.md"; } > quartz/content/index.md
+          # 사이트 첫 화면 = 가장 최근 일차의 일지 (제목을 붙여 index.md로 복사)
+          LATEST=$(ls "notes/01 일지" | grep -E '^[0-9]+일차\.md$' | sed 's/일차\.md$//' | sort -n | tail -1)
+          echo "첫 화면: ${LATEST}일차"
+          { echo '---'; echo "title: ${LATEST}일차"; tail -n +2 "notes/01 일지/${LATEST}일차.md"; } > quartz/content/index.md
           # 사이트 설정·부품: 볼트의 .quartz/는 Quartz 폴더 구조 그대로라 통째로 덮어쓴다
           cp -r notes/.quartz/. quartz/
 

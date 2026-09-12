@@ -5,9 +5,12 @@ import PeopleGraph from "./quartz/components/PeopleGraph"
 import FontLoader from "./quartz/components/FontLoader"
 import RefreshButton from "./quartz/components/RefreshButton"
 import DayLegend from "./quartz/components/DayLegend"
+import EntityEvents from "./quartz/components/EntityEvents"
+import BnTagList from "./quartz/components/BnTagList"
+import BnFooter from "./quartz/components/BnFooter"
 
 // 봉누도2 — 원본은 볼트의 .quartz/quartz.layout.ts. GitHub Actions가 빌드 때 Quartz에 덮어쓴다.
-// 실제 날짜가 보이지 않도록 ContentMeta(수정일·읽는 시간)는 넣지 않는다.
+// 실제 날짜가 보이지 않도록 ContentMeta(수정일·읽는 시간)는 넣지 않고, 바닥글도 도구 이름·연도가 없는 BnFooter를 쓴다.
 // 왼쪽 위 사이트 제목(PageTitle)은 넣지 않는다.
 
 // 폴더는 기본으로 접고, ExplorerDefaults가 '01 일지'만 처음에 펼쳐 둔다.
@@ -27,10 +30,9 @@ const explorer = Component.Explorer({
 export const sharedPageComponents: SharedLayout = {
   head: Component.Head(),
   header: [],
-  afterBody: [ExplorerDefaults(), FontLoader()],
-  footer: Component.Footer({
-    links: {},
-  }),
+  // 본문 아래: 인물·세력 페이지의 '사건 기록' 표 (다른 페이지에서는 아무것도 그리지 않음)
+  afterBody: [EntityEvents(), ExplorerDefaults(), FontLoader()],
+  footer: BnFooter(),
 }
 
 // components for pages that display a single page (e.g. a single note)
@@ -45,7 +47,8 @@ export const defaultContentPageLayout: PageLayout = {
     Component.ArticleTitle(),
     // 일지·사건 목록 페이지에서만 제목 오른쪽에 표 색 안내
     DayLegend(),
-    Component.TagList(),
+    // 세력 관계 태그(경쟁/… 등)는 빼고 보여 주는 태그 목록
+    BnTagList(),
   ],
   left: [
     Component.MobileOnly(Component.Spacer()),
