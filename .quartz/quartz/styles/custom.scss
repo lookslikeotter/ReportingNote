@@ -627,17 +627,22 @@ article table,
 
 // ── 일지 표 (일지·첫 화면·사건 목록 페이지의 표, 그래프 선 창, 사건 기록 표) ──
 // 칸: 시간 | 사건 | 요약 | 관련 인물 | 입수 경로.
-// 사건 기록 표(인물·세력 페이지)만 앞에 '일차' 칸이 하나 더 있어서(.bn-has-day) 칸 규칙을 한 칸씩 민다.
-// 시간만 줄바꿈을 막고, 나머지는 모두 줄을 바꾼다 (한 칸이 길어져 옆 칸을 밀어내지 않게).
+// 사건 기록 표(인물·세력 페이지)만 앞에 '일차' 칸이 하나 더 있다 (.bn-has-day).
+// 칸마다 최소 너비를 보장해서 어느 표에서든 같은 크기로 보이게 하고, 내용이 길면 그 칸 안에서 줄을 바꾼다.
+// 다 넣을 자리가 없으면 칸을 줄이지 말고 상자(.table-container·.bn-case-table)가 옆으로 스크롤한다.
 @mixin bn-day-cols($o: 0) {
+  // 머리줄은 줄바꿈하지 않는다 ("입수 경로"가 두 줄이 되면서 칸이 좁아지던 문제)
+  & th {
+    white-space: nowrap;
+  }
   // 시간: 줄바꿈 없이, 숫자 폭 고정
   & td:nth-child(#{1 + $o}) {
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
   }
-  // 사건: 굵게. 좁은 화면에서 세로로 길어지지 않게 최소 너비를 준다
+  // 사건: 굵게
   & td:nth-child(#{2 + $o}) {
-    min-width: 8em;
+    min-width: 7em;
   }
   & td:nth-child(#{2 + $o}) a {
     font-weight: 600;
@@ -645,13 +650,15 @@ article table,
   // 요약이 남는 너비를 가져간다
   & td:nth-child(#{3 + $o}) {
     width: 100%;
-    min-width: 12em;
+    min-width: 10em;
   }
-  // 관련 인물·입수 경로: 길어지면 옆으로 늘어나지 말고 줄을 바꾼다
+  // 관련 인물·입수 경로: 최소 너비는 지키고, 길어지면 옆 칸을 밀지 말고 줄을 바꾼다
   & td:nth-child(#{4 + $o}) {
+    min-width: 9em;
     max-width: 22em;
   }
   & td:nth-child(#{5 + $o}) {
+    min-width: 6em;
     max-width: 14em;
   }
 }
@@ -659,10 +666,27 @@ article table,
 body[data-slug$="일차"] article table,
 body[data-slug="index"] article table,
 body[data-slug="01-일지/사건-목록"] article table,
-.bn-case-table table {
+.bn-case-table:not(.bn-has-day) table {
   width: 100%;
   @include bn-day-cols(0);
+}
 
+// 사건 기록 표: '일차' 칸이 앞에 하나 더 있어서 칸 규칙을 한 칸씩 민다
+.bn-case-table.bn-has-day table {
+  width: 100%;
+  @include bn-day-cols(1);
+
+  & td:nth-child(1) {
+    min-width: 4em;
+    white-space: nowrap;
+  }
+}
+
+// 두 표에 공통
+body[data-slug$="일차"] article table,
+body[data-slug="index"] article table,
+body[data-slug="01-일지/사건-목록"] article table,
+.bn-case-table table {
   // 행에 마우스를 올리면 옅은 배경
   & tbody tr:hover > td {
     background-color: var(--bn-hover);
@@ -672,20 +696,6 @@ body[data-slug="01-일지/사건-목록"] article table,
   & tr:has(.bn-lv-scoop) > td {
     background-color: rgba(240, 160, 32, 0.07);
   }
-}
-
-// 사건 기록 표: '일차' 칸이 앞에 하나 더 있다. 위 규칙을 지우고 한 칸씩 밀어서 다시 건다
-.bn-case-table.bn-has-day table {
-  & td:nth-child(n) {
-    width: auto;
-    min-width: 0;
-    max-width: none;
-    white-space: normal;
-  }
-  & td:nth-child(1) {
-    white-space: nowrap;
-  }
-  @include bn-day-cols(1);
 }
 
 // ── 인물·세력 링크 칩 (LinkChips / bongnudo.ts decorateLinks): 인물은 분류 색 점, 세력은 네모 ──
@@ -940,6 +950,12 @@ a.internal.bn-chip {
       width: auto;
       min-width: 0;
       white-space: normal;
+    }
+    // 칸 너비 규칙(최소·최대 너비)은 카드에서는 쓰지 않는다
+    & td:nth-child(n) {
+      width: auto;
+      min-width: 0;
+      max-width: none;
     }
     & tr {
       padding: 0.5rem 0.7rem;
