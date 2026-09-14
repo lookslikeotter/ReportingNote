@@ -146,7 +146,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     btn.addEventListener("click", (ev) => {
       ev.stopPropagation()
       setHideMe(!hideMe())
-      document.dispatchEvent(new CustomEvent("bn-me-toggle") as Event)
+      document.dispatchEvent(new CustomEvent("bn-me-toggle", { detail: {} }))
     })
     graph.append(btn)
   }
