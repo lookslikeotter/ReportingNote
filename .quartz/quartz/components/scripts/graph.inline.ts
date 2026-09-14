@@ -317,7 +317,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   const radius = (Math.min(width, height) / 2) * 0.8
   if (enableRadial) simulation.force("radial", forceRadial(radius).strength(0.2))
 
-  // 배치를 미리 계산해 두고 시작한다 (한 화면에 맞추려면 최종 위치가 필요)
+  // 배치를 미리 계산한다 (한 화면에 맞추려면 최종 위치가 필요). 배율을 맞춘 뒤에는 처음 위치로 되돌려
+  // 흔들리며 자리 잡는 모습을 그대로 보여 준다 (초기 위치와 힘이 같아서 같은 자리로 모인다)
   simulation.stop()
   for (let i = 0; i < 300; i++) simulation.tick()
 
@@ -667,6 +668,12 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       )
     }
   }
+
+  // 배율을 맞췄으니 처음 위치로 되돌리고 다시 움직이게 한다
+  for (const n of graphData.nodes) {
+    n.x = n.y = n.vx = n.vy = undefined
+  }
+  simulation.nodes(graphData.nodes).alpha(1).restart()
 
   // 선 위에 마우스를 올리면 하이라이트, 누르면 창
   function setHoveredLink(l: LinkRenderData | null) {
