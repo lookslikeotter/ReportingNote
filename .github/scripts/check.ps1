@@ -250,7 +250,7 @@ foreach ($c in $caseNotes) {
     }
     $parentSubs[$c.Path] = $subs
     if ($subs.Count -gt 0) {
-      # 큰 사건의 관련인물·관련세력·가담인물은 하위의 합집합 (등장 순), 취재가치는 가장 높은 등급, 시간은 첫 하위의 시간
+      # 큰 사건의 관련인물·관련세력·가담인물은 하위의 합집합 (등장 순), 시간은 첫 하위의 시간. 취재가치는 큰 사건 전체를 보고 따로 매긴다
       $uP = @(); $uF = @(); $uJ = @(); $grades = @()
       foreach ($sn in $subs) {
         foreach ($x in (PathsOf $sn '관련인물')) { if ($uP -notcontains $x) { $uP += $x } }
@@ -262,8 +262,6 @@ foreach ($c in $caseNotes) {
       if (((PathsOf $c '관련인물') -join '|') -ne ($uP -join '|')) { Err $c.Rel "큰 사건의 관련인물이 하위 사건 관련인물의 합집합(등장 순)과 다름`n    노트: $((PathsOf $c '관련인물') -join ', ')`n    합집합: $($uP -join ', ')" }
       if (((PathsOf $c '관련세력') -join '|') -ne ($uF -join '|')) { Err $c.Rel "큰 사건의 관련세력이 하위 사건 관련세력의 합집합과 다름" }
       if (((PathsOf $c '가담인물') -join '|') -ne ($uJ -join '|')) { Err $c.Rel "큰 사건의 가담인물이 하위 사건 가담인물의 합집합(관련인물 제외)과 다름`n    노트: $((PathsOf $c '가담인물') -join ', ')`n    합집합: $($uJ -join ', ')" }
-      $wantG = "☕ 일상"; if ($grades -contains "📰 사건") { $wantG = "📰 사건" }; if ($grades -contains "🔥 특종") { $wantG = "🔥 특종" }
-      if ((Scalar $fm '취재가치') -ne $wantG) { Err $c.Rel "큰 사건의 취재가치($(Scalar $fm '취재가치'))가 하위 중 가장 높은 등급($wantG)과 다름" }
       if ((Scalar $fm '시간') -ne (Scalar $subs[0].Front '시간')) { Err $c.Rel "큰 사건의 시간이 첫 하위 사건의 시간($(Scalar $subs[0].Front '시간'))과 다름" }
     }
   }
