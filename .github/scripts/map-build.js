@@ -9,8 +9,8 @@ const https = require("https")
 
 const SITE = "https://bnd2-fanwiki.app/map"
 const DATA = ".github/data/map.json"
-const SVG = "봉누도 지도.svg"
-const NOTE = "봉누도 지도.md"
+const SVG = "private/봉누도 지도.svg"
+const NOTE = "private/봉누도 지도.md"
 
 // 사이트의 기관 이름 → 볼트 세력 노트
 const ORG_NOTE = { EMS: "병원", 언론: "봉누도방송국", 교통정비공사: "교통정비공사", 경찰: "경찰", 시청: "시청" }
