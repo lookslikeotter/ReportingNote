@@ -143,8 +143,8 @@ foreach ($n in $notes) {
 }
 
 # ── 2. 일지 표 읽기 ──
-$gradeSpan = @{ "📰 사건" = "bn-lv-news"; "🔥 특종" = "bn-lv-scoop"; "☕ 일상" = "" }
-$gradeTag = @{ "📰 사건" = "사건"; "🔥 특종" = "특종"; "☕ 일상" = "" }
+$gradeSpan = @{ "📰 사건" = "bn-lv-news"; "🔥 특종" = "bn-lv-scoop"; "📅 이벤트" = "bn-lv-event"; "☕ 일상" = "" }
+$gradeTag = @{ "📰 사건" = "사건"; "🔥 특종" = "특종"; "📅 이벤트" = "이벤트"; "☕ 일상" = "" }
 $days = @{}   # N → @{ Note; Rows }
 foreach ($n in $notes) {
   if ($n.Folder -ne "01 일지" -or $n.Name -notmatch '^(\d+)일차$') { continue }
@@ -212,7 +212,7 @@ $people = $notes | Where-Object { $_.Folder -eq "02 인물" -and $_.Name -ne "�
 $factions = $notes | Where-Object { $_.Folder -match '^03 세력/(기관|갱|사업체)$' }
 $meetings = @{}   # 인물 Path → 일차 목록
 $factionCases = @{}  # 세력 Path → 사건 노트 목록
-$validGrade = @("📰 사건", "🔥 특종", "☕ 일상")
+$validGrade = @("📰 사건", "🔥 특종", "📅 이벤트", "☕ 일상")   # 📅 이벤트는 큰 사건에만
 $validStatus = @("진행중", "종결", "미궁")
 $parentSubs = @{}   # 큰 사건 Path → 하위 사건 노트 목록
 function PathsOf($note, $key) { $o = @(); foreach ($t in (ListOf $note.Front $key)) { $lt = LinkTargets $t; if ($lt.Count -eq 0) { continue }; $r = Resolve $lt[0]; if ($r -and $o -notcontains $r.Path) { $o += $r.Path } }; return $o }
@@ -272,7 +272,7 @@ foreach ($c in $caseNotes) {
   $tags = ListOf $fm 'tags'
   if ($gradeTag.ContainsKey($grade)) {
     $want = $gradeTag[$grade]
-    foreach ($t in @("사건", "특종")) {
+    foreach ($t in @("사건", "특종", "이벤트")) {
       if ($t -eq $want -and $tags -notcontains $t) { Err $c.Rel "취재가치 $grade 인데 tags에 $t 없음" }
       if ($t -ne $want -and $tags -contains $t) { Err $c.Rel "취재가치 $grade 인데 tags에 $t 있음" }
     }
@@ -348,8 +348,8 @@ foreach ($c in $caseNotes) {
   if ($rows.Count -eq 0) { Err $dayRel "사건 '$($c.Name)'의 행이 없음"; continue }
   if ($rows.Count -gt 1) { Err $dayRel "사건 '$($c.Name)'의 행이 $($rows.Count)개" }
   $row = $rows[0]
-  $wantKind = "daily"; if ($gradeSpan.ContainsKey($grade)) { switch ($gradeSpan[$grade]) { "bn-lv-news" { $wantKind = "news" } "bn-lv-scoop" { $wantKind = "scoop" } } }
-  if ($tags -contains "이벤트") { if (-not $isParent) { Err $c.Rel "이벤트 태그는 큰 사건에만 단다" }; $wantKind = "event" }
+  $wantKind = "daily"; if ($gradeSpan.ContainsKey($grade)) { switch ($gradeSpan[$grade]) { "bn-lv-news" { $wantKind = "news" } "bn-lv-scoop" { $wantKind = "scoop" } "bn-lv-event" { $wantKind = "event" } } }
+  if ($grade -eq "📅 이벤트" -and -not $isParent) { Err $c.Rel "취재가치 📅 이벤트는 큰 사건에만 쓴다" }
   if ($row.Kind -ne $wantKind) { Err $dayRel "'$($c.Name)' 행의 등급 이름표가 취재가치($grade)와 다름" }
   if ($row.Time -ne (Scalar $fm '시간')) { Err $dayRel "'$($c.Name)' 행의 시간($($row.Time))이 노트($(Scalar $fm '시간'))와 다름" }
   if ($row.Summary -ne (Norm (Scalar $fm '요약'))) { Err $dayRel "'$($c.Name)' 행의 요약이 노트와 다름`n    표: $($row.Summary)`n    노트: $(Norm (Scalar $fm '요약'))" }
@@ -383,7 +383,7 @@ foreach ($c in $caseNotes) {
 foreach ($dn in $days.Keys) {
   foreach ($r in $days[$dn].Rows) {
     $t = $r.Target
-    if ($r.Kind -eq "event" -and (ListOf $t.Front 'tags') -notcontains "이벤트") { Err $days[$dn].Note.Rel "📅 행 '$($t.Name)'에 이벤트 태그가 없음 (📅 띠는 이벤트 태그가 붙은 큰 사건만)" }
+    if ($r.Kind -eq "event" -and (ListOf $t.Front 'tags') -notcontains "이벤트") { Err $days[$dn].Note.Rel "📅 행 '$($t.Name)'에 이벤트 태그가 없음 (📅 띠는 취재가치가 📅 이벤트인 큰 사건만)" }
     if ($t.Folder -notmatch ('^' + [regex]::Escape("01 일지/사건/${dn}일차") + '(/|$)')) { Err $days[$dn].Note.Rel "행이 ${dn}일차 사건 노트가 아닌 '$($t.Rel)'을 가리킴" }
   }
 }

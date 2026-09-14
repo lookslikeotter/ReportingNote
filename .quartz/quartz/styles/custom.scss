@@ -774,6 +774,9 @@ a.internal.bn-chip {
   &[data-v="🔥 특종"] {
     --b: #c77800;
   }
+  &[data-v="📅 이벤트"] {
+    --b: var(--bn-event-bar);
+  }
   // 명총희와의 관계·상태·분류
   &[data-v="동료"],
   &[data-v="우호"],
