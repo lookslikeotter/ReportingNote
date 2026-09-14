@@ -1001,32 +1001,51 @@ a.internal.bn-chip {
 }
 
 // 봉누도2: 일지 표의 큰 사건/하위 사건 (DayTable.tsx · dayTable.inline.ts)
-// 큰 사건 행(bn-parent)은 굵은 제목 + ▸ 버튼 + 건수. 하위 행(bn-sub)은 사건 칸을 들여쓰고 왼쪽에 안내선을 긋는다.
+// 큰 사건 행(bn-parent): 굵은 제목 앞에 큼직한 ▸ 칩 버튼, 뒤에 건수.
+// 하위 행(bn-sub): 행 전체를 옅은 배경으로 깔고, 맨 왼쪽(시간 칸)부터 들여써서 왼쪽에 세로 안내선을 긋는다.
 // 접힌 하위 행(bn-collapsed)은 숨긴다.
 :root {
-  --bn-sub-indent: 2.2em;
-  --bn-sub-guide: var(--lightgray);
+  --bn-sub-indent: 1.6em;
+  --bn-sub-guide: #b9c2d0;
+  --bn-sub-bg: rgba(120, 130, 150, 0.07);
+}
+:root[saved-theme="dark"] {
+  --bn-sub-guide: #4b5563;
+  --bn-sub-bg: rgba(160, 170, 190, 0.08);
 }
 .bn-toggle {
   all: unset;
+  box-sizing: border-box;
   cursor: pointer;
-  display: inline-block;
-  width: 1.3em;
-  margin-right: 0.25em;
-  color: var(--gray);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7em;
+  height: 1.7em;
+  margin-right: 0.45em;
+  vertical-align: middle;
+  border: 1.5px solid var(--secondary);
+  border-radius: 6px;
+  color: var(--secondary);
+  background: var(--light);
+  font-size: 1.05em;
   font-weight: 700;
   line-height: 1;
-  text-align: center;
-  border-radius: 4px;
-  &:hover {
-    color: var(--secondary);
-    background: var(--bn-hover);
+  transition: background 0.12s, color 0.12s;
+  &:hover,
+  &[aria-expanded="true"] {
+    background: var(--secondary);
+    color: var(--light);
   }
 }
 .bn-count {
-  margin-left: 0.4em;
-  font-size: 0.8em;
-  color: var(--gray);
+  margin-left: 0.45em;
+  padding: 0.05em 0.45em;
+  border-radius: 999px;
+  background: var(--lightgray);
+  color: var(--darkgray);
+  font-size: 0.78em;
+  font-weight: 500;
   white-space: nowrap;
 }
 tr.bn-parent > td a {
@@ -1035,46 +1054,61 @@ tr.bn-parent > td a {
 tr.bn-collapsed {
   display: none !important;
 }
-@mixin bn-sub-cell {
+// 하위 행: 옅은 배경 + 첫 칸 들여쓰기 + 세로 안내선
+tr.bn-sub > td {
+  background-color: var(--bn-sub-bg);
+  color: var(--darkgray);
+  font-size: 0.95em;
+}
+tr.bn-sub > td:first-child {
   position: relative;
-  padding-left: var(--bn-sub-indent);
-  // 왼쪽 안내선 (표의 세로선처럼 옅게)
+  padding-left: calc(var(--bn-sub-indent) + 0.6em);
   &::before {
     content: "";
     position: absolute;
-    left: 0.9em;
+    left: var(--bn-sub-indent);
     top: 0;
     bottom: 0;
     border-left: 2px solid var(--bn-sub-guide);
   }
-  // 안내선에서 사건 이름으로 꺾이는 짧은 가로선
   &::after {
     content: "";
     position: absolute;
-    left: 0.9em;
+    left: var(--bn-sub-indent);
     top: 50%;
-    width: 0.7em;
+    width: 0.45em;
     border-top: 2px solid var(--bn-sub-guide);
   }
 }
-body[data-slug$="일차"] article table,
-body[data-slug="index"] article table,
-body[data-slug="01-일지/사건-목록"] article table,
-.bn-case-table:not(.bn-has-day) table {
-  & tr.bn-sub > td:nth-child(2) {
-    @include bn-sub-cell;
+// 마지막 하위 행은 안내선을 가운데까지만 (└ 모양)
+tr.bn-sub.bn-last > td:first-child::before {
+  bottom: 50%;
+}
+// 사건 기록 표(.bn-has-day)는 첫 칸이 일차라서, 들여쓰기·안내선을 둘째 칸(시간)에 둔다
+.bn-case-table.bn-has-day table {
+  tr.bn-sub > td:first-child {
+    padding-left: 0.6em;
+    &::before,
+    &::after {
+      display: none;
+    }
+  }
+  tr.bn-sub > td:nth-child(2) {
+    position: relative;
+    padding-left: calc(var(--bn-sub-indent) + 0.6em);
+    &::before {
+      content: "";
+      position: absolute;
+      left: var(--bn-sub-indent);
+      top: 0;
+      bottom: 0;
+      border-left: 2px solid var(--bn-sub-guide);
+    }
   }
 }
-.bn-case-table.bn-has-day table tr.bn-sub > td:nth-child(3) {
-  @include bn-sub-cell;
-}
-tr.bn-sub > td {
-  color: var(--darkgray);
-  font-size: 0.95em;
-}
-tr.bn-sub > td:nth-child(2) a,
-.bn-case-table.bn-has-day table tr.bn-sub > td:nth-child(3) a {
-  font-weight: 500;
+// 특종 하위 행: 옅은 주황이 하위 배경과 겹치므로 하위 배경만 둔다
+tr.bn-sub:has(.bn-lv-scoop) > td {
+  background-color: var(--bn-sub-bg);
 }
 @media all and (max-width: 800px) {
   body[data-slug$="일차"] article table,
@@ -1082,9 +1116,10 @@ tr.bn-sub > td:nth-child(2) a,
   body[data-slug="01-일지/사건-목록"] article table {
     & tr.bn-sub {
       margin-left: 1.4rem;
-      border-left: 2px solid var(--bn-sub-guide);
+      border-left: 3px solid var(--bn-sub-guide);
+      background-color: var(--bn-sub-bg);
     }
-    & tr.bn-sub > td:nth-child(2) {
+    & tr.bn-sub > td:first-child {
       padding-left: 0;
       &::before,
       &::after {

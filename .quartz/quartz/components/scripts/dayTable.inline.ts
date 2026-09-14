@@ -33,6 +33,7 @@ function markTable(table: HTMLTableElement, collapsible: boolean) {
     btn.textContent = "▸"
     const kids = children
     for (const k of kids) k.classList.add("bn-collapsed")
+    kids[kids.length - 1].classList.add("bn-last")
     btn.addEventListener("click", (e) => {
       e.preventDefault()
       e.stopPropagation()
