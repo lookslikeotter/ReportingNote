@@ -109,15 +109,7 @@ export const defaultContentPageLayout: PageLayout = {
     PeopleGraph(),
     Component.Graph({
       localGraph: { fontSize: 1.4, repelForce: 0.8, linkDistance: 50, showTags: false },
-      // 전체 그래프도 원형 배치를 끈다: 켜 두면 모든 점이 원 둘레로 끌려가 사건 인연이 많은 무리끼리도 멀어진다
-      globalGraph: {
-        fontSize: 1.0,
-        repelForce: 0.8,
-        centerForce: 0.3,
-        linkDistance: 50,
-        showTags: false,
-        enableRadial: false,
-      },
+      globalGraph: { fontSize: 1.0, showTags: false },
     }),
   ],
 }
