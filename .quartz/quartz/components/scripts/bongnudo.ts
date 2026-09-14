@@ -269,6 +269,44 @@ function mixColor(a: string, b: string, t: number): string {
 // 마우스를 올린 선은 이만큼 더 굵게
 export const HOVER_EXTRA_WIDTH = 1.5
 
+// ── 처음 화면 ──
+
+// 처음 화면에 담을 영역(그래프 좌표 상자): 노드가 모여 있는 곳 위주로.
+// 선이 많은 노드에 무게를 두어 무게중심을 잡고, 거기서 가까운 노드부터 전체 무게의 share만큼 담는다.
+// 멀리 떨어진 외톨이 노드는 화면 밖에 둔다 (끌어서 볼 수 있다). keep에 든 노드(지금 페이지 등)는 항상 담는다.
+// 노드가 minCount 이하면 전부 담는다.
+export function focusBox<N extends { x?: number; y?: number }>(
+  nodes: N[],
+  weightOf: (n: N) => number,
+  opts: { share?: number; minCount?: number; keep?: N[]; pad?: number } = {},
+): { minX: number; maxX: number; minY: number; maxY: number } | null {
+  const placed = nodes.filter((n) => n.x !== undefined && n.y !== undefined)
+  if (placed.length === 0) return null
+  const share = opts.share ?? 0.75
+  const minCount = opts.minCount ?? 6
+  const pad = opts.pad ?? 40
+  const weighted = placed.map((n) => ({ n, w: Math.max(0, weightOf(n)) }))
+  const total = weighted.reduce((s, x) => s + x.w, 0) || 1
+  const cx = weighted.reduce((s, x) => s + x.n.x! * x.w, 0) / total
+  const cy = weighted.reduce((s, x) => s + x.n.y! * x.w, 0) / total
+  weighted.sort((a, b) => Math.hypot(a.n.x! - cx, a.n.y! - cy) - Math.hypot(b.n.x! - cx, b.n.y! - cy))
+  const picked = new Set<N>(opts.keep ?? [])
+  let acc = 0
+  for (const { n, w } of weighted) {
+    if (picked.size >= minCount && acc >= total * share) break
+    picked.add(n)
+    acc += w
+  }
+  const xs = [...picked].filter((n) => n.x !== undefined).map((n) => n.x!)
+  const ys = [...picked].filter((n) => n.y !== undefined).map((n) => n.y!)
+  return {
+    minX: Math.min(...xs) - pad,
+    maxX: Math.max(...xs) + pad,
+    minY: Math.min(...ys) - pad,
+    maxY: Math.max(...ys) + pad,
+  }
+}
+
 // ── 선 위 마우스 ──
 
 // 선은 마우스에 반응하지 않는 그림이라, 마우스 위치(캔버스 좌표)에서 가장 가까운 선을 직접 찾는다.

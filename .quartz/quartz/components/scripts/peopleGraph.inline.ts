@@ -27,6 +27,7 @@ import {
   tableEventPairs,
   factionColors,
   factionIndex,
+  focusBox,
   personColor,
   linkResolver,
   loadContentIndex,
@@ -43,7 +44,7 @@ import {
 //   - 선은 사건 인연 선만 (일지 표 📰·🔥 행 관련 인물 칸에 함께 적힌 두 인물, 사건이 많을수록 굵고 가깝게).
 //     명총희는 인물 태그가 없어 노드도 선도 없다.
 //     같은 소속끼리는 선 없이 보이지 않는 힘으로 가까이 모은다
-//   - 배치를 미리 계산해 모든 인물이 한 화면에 들어오게 맞추고, 인물 페이지로 가면 그 인물 쪽으로 옮기며 확대한다
+//   - 배치를 미리 계산해 인물이 모여 있는 곳(bongnudo.ts focusBox)이 화면에 들어오게 맞추고, 인물 페이지로 가면 그 인물 쪽으로 옮기며 확대한다
 //   - 페이지를 옮겨도 다시 그리지 않는다 (크기·테마가 바뀔 때만)
 //   - 선에 마우스를 올리면 하이라이트, 누르면 두 인물이 함께 엮인 사건 표 창
 const PERSON_TAG = "인물"
@@ -225,11 +226,13 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   const eventColor = (l: LinkData) =>
     eventLinkColor(l.weight, computedStyleMap["--gray"], computedStyleMap["--dark"])
 
+  // 노드에 이어진 선 수
+  function degree(d: NodeData) {
+    return graphData.links.filter((l) => l.source.id === d.id || l.target.id === d.id).length
+  }
+
   function nodeRadius(d: NodeData) {
-    const numLinks = graphData.links.filter(
-      (l) => l.source.id === d.id || l.target.id === d.id,
-    ).length
-    return 4 + Math.sqrt(numLinks)
+    return 4 + Math.sqrt(degree(d))
   }
 
   let hoveredNodeId: string | null = null
@@ -517,14 +520,13 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     const canvasSelection = select<HTMLCanvasElement, NodeData>(app.canvas)
     canvasSelection.call(zoomBehavior)
 
-    // 모든 인물이 한 화면에 들어오도록 배율과 위치를 맞춰서 시작
-    if (graphData.nodes.length > 0) {
-      const xs = graphData.nodes.map((n) => n.x ?? 0)
-      const ys = graphData.nodes.map((n) => n.y ?? 0)
-      const minX = Math.min(...xs) - FIT_PAD
-      const maxX = Math.max(...xs) + FIT_PAD
-      const minY = Math.min(...ys) - FIT_PAD
-      const maxY = Math.max(...ys) + FIT_PAD
+    // 인물이 모여 있는 곳이 화면에 들어오도록 배율과 위치를 맞춰서 시작 (bongnudo.ts focusBox). 지금 페이지 인물은 항상 담는다
+    const box = focusBox(graphData.nodes, (n) => 1 + degree(n), {
+      keep: graphData.nodes.filter((n) => n.id === slug),
+      pad: FIT_PAD,
+    })
+    if (box) {
+      const { minX, maxX, minY, maxY } = box
       const fitK = Math.min(width / (maxX - minX), height / (maxY - minY))
       const k = Math.max(0.25, Math.min(FIT_MAX, fitK))
       const cx = (minX + maxX) / 2 + width / 2

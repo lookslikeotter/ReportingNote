@@ -28,6 +28,7 @@ import {
   eventLinkWidth,
   factionColors,
   factionIndex,
+  focusBox,
   isInfoNode,
   isPersonNode,
   linkResolver,
@@ -52,8 +53,8 @@ import {
 //   - 거리는 언제나 사건 인연이 정한다. 관계 종류는 색·굵기만 정한다 (적대라고 멀어지지 않는다)
 //     본문 링크는 어떤 노드를 보여 줄지(이웃 계산)에만 쓰고 선으로 그리지 않는다
 //   - 선에 마우스를 올리면 하이라이트, 누르면 창 (사건 표 · 소속 · 세력 관계)
-//   - 배치를 미리 계산해 노드가 다 들어오도록 배율·위치를 맞춘 뒤(FIT_MAX_* 까지만 확대),
-//     노드를 처음 위치로 되돌려 흔들리며 자리 잡는 모습은 그대로 보여 준다
+//   - 배치를 미리 계산해 노드가 모여 있는 곳(bongnudo.ts focusBox)이 들어오도록 배율·위치를 맞춘 뒤(FIT_MAX_* 까지만 확대),
+//     노드를 처음 위치로 되돌려 흔들리며 자리 잡는 모습은 그대로 보여 준다. 멀리 떨어진 노드는 화면 밖에 둔다
 //   - 왼쪽 위 '명총희 숨기기' 버튼: 명총희는 거의 모든 인물과 이어진 허브라, 빼면 인물끼리의 관계가 드러난다.
 //     상태는 브라우저에 남고(bn-hide-me), 명총희 본인 페이지에서는 숨기지 않는다
 
@@ -349,11 +350,13 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
       ? computedStyleMap["--dark"]
       : personColor(d.tags, fcolors, factions, computedStyleMap["--dark"])
 
+  // 노드에 이어진 선 수
+  function degree(d: NodeData) {
+    return graphData.links.filter((l) => l.source.id === d.id || l.target.id === d.id).length
+  }
+
   function nodeRadius(d: NodeData) {
-    const numLinks = graphData.links.filter(
-      (l) => l.source.id === d.id || l.target.id === d.id,
-    ).length
-    return 2 + Math.sqrt(numLinks)
+    return 2 + Math.sqrt(degree(d))
   }
 
   let hoveredNodeId: string | null = null
@@ -652,14 +655,14 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     const canvasSelection = select<HTMLCanvasElement, NodeData>(app.canvas)
     canvasSelection.call(zoomBehavior)
 
-    // 노드가 다 들어오도록 배율·위치를 맞춰서 시작 (사이드바는 상자 크기에 맞춰 확대, 전체 그래프는 덜)
-    if (graphData.nodes.length > 0) {
-      const xs = graphData.nodes.map((n) => n.x ?? 0)
-      const ys = graphData.nodes.map((n) => n.y ?? 0)
-      const minX = Math.min(...xs) - FIT_PAD
-      const maxX = Math.max(...xs) + FIT_PAD
-      const minY = Math.min(...ys) - FIT_PAD
-      const maxY = Math.max(...ys) + FIT_PAD
+    // 노드가 모여 있는 곳이 화면에 들어오도록 배율·위치를 맞춰서 시작 (bongnudo.ts focusBox).
+    // 사이드바는 상자 크기에 맞춰 확대, 전체 그래프는 덜. 지금 페이지 노드는 항상 담는다
+    const box = focusBox(graphData.nodes, (n) => 1 + degree(n), {
+      keep: graphData.nodes.filter((n) => n.id === slug),
+      pad: FIT_PAD,
+    })
+    if (box) {
+      const { minX, maxX, minY, maxY } = box
       const fitK = Math.min(width / (maxX - minX), height / (maxY - minY))
       const k = Math.max(0.25, Math.min(isGlobal ? FIT_MAX_GLOBAL : FIT_MAX_LOCAL, fitK))
       const cx = (minX + maxX) / 2 + width / 2
