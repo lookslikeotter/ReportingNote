@@ -159,6 +159,9 @@ foreach ($n in $notes) {
     $cells = [regex]::Split($l, '(?<!\\)\|')
     if ($cells.Count -lt 7) { Err $n.Rel "표 행의 칸이 5개가 아님: $l"; continue }
     $c = @(); for ($k = 1; $k -le 5; $k++) { $c += $cells[$k].Trim() }
+    # 하위 사건 행: 사건 칸이 ↳ 로 시작 (바로 위의 하위가 아닌 행이 큰 사건)
+    $isSubRow = $false
+    if ($c[1] -match '^↳\s*') { $isSubRow = $true; $c[1] = $c[1] -replace '^↳\s*', '' }
     $kind = "daily"; $time = $c[0]
     $sm = [regex]::Match($c[0], '<span class="(bn-lv-\w+)">(.*?)</span>')
     if ($sm.Success) {
@@ -170,8 +173,14 @@ foreach ($n in $notes) {
     if (-not $target) { Err $n.Rel "사건 칸이 노트를 가리키지 않음: $($c[1])"; continue }
     $rows += [pscustomobject]@{
       Day = $dn; Kind = $kind; Time = $time; Target = $target; Summary = (Norm $c[2])
-      Related = (ResolveAll (LinkTargets $c[3])); Source = (Norm $c[4]); Line = $l
+      Related = (ResolveAll (LinkTargets $c[3])); Source = (Norm $c[4]); Line = $l; Sub = $isSubRow; Parent = $null
     }
+  }
+  # 하위 행의 큰 사건 = 바로 위의 하위가 아닌 행
+  $lastTop = $null
+  foreach ($r in $rows) {
+    if ($r.Sub) { if ($lastTop) { $r.Parent = $lastTop } else { Err $n.Rel "↳ 행 앞에 큰 사건 행이 없음: $($r.Line)" } }
+    else { $lastTop = $r.Target }
   }
   $days[$dn] = @{ Note = $n; Rows = $rows }
 }
@@ -187,8 +196,8 @@ foreach ($dn in ($days.Keys | Sort-Object)) {
   }
   # 표의 사건 행은 파일 번호 순
   $nums = @()
-  foreach ($r in $days[$dn].Rows) { if ($r.Target.Name -match '^\d+일차-(\d+) ') { $nums += [int]$matches[1] } }
-  for ($k = 1; $k -lt $nums.Count; $k++) { if ($nums[$k] -lt $nums[$k - 1]) { Warn $d.Rel "표 행이 사건 번호 순이 아님 ($($nums[$k-1]) 뒤에 $($nums[$k]))"; break } }
+  foreach ($r in $days[$dn].Rows) { if ($r.Target.Name -match '^\d+일차-(\d+)(?:-(\d+))? ') { $kk = 0; if ($matches[2]) { $kk = [int]$matches[2] }; $nums += ([int]$matches[1] * 1000 + $kk) } }
+  for ($k = 1; $k -lt $nums.Count; $k++) { if ($nums[$k] -lt $nums[$k - 1]) { Warn $d.Rel "표 행이 사건 번호 순이 아님 ($([math]::Floor($nums[$k-1] / 1000)) 뒤에 $([math]::Floor($nums[$k] / 1000)))"; break } }
 }
 if ($eventList) {
   # 사건 목록은 최신 일차가 위
@@ -205,11 +214,56 @@ $meetings = @{}   # 인물 Path → 일차 목록
 $factionCases = @{}  # 세력 Path → 사건 노트 목록
 $validGrade = @("📰 사건", "🔥 특종", "☕ 일상")
 $validStatus = @("진행중", "종결", "미궁")
+$parentSubs = @{}   # 큰 사건 Path → 하위 사건 노트 목록
+function PathsOf($note, $key) { $o = @(); foreach ($t in (ListOf $note.Front $key)) { $lt = LinkTargets $t; if ($lt.Count -eq 0) { continue }; $r = Resolve $lt[0]; if ($r -and $o -notcontains $r.Path) { $o += $r.Path } }; return $o }
 foreach ($c in $caseNotes) {
   $dn = [int]([regex]::Match($c.Folder, '(\d+)일차$').Groups[1].Value)
-  if ($c.Name -notmatch '^(\d+)일차-(\d{2}) .+$') { Err $c.Rel "파일명이 'N일차-NN 제목' 꼴이 아님"; continue }
+  if ($c.Name -notmatch '^(\d+)일차-(\d{2})(?:-(\d+))? .+$') { Err $c.Rel "파일명이 'N일차-NN 제목' 또는 'N일차-NN-K 제목' 꼴이 아님"; continue }
   if ([int]$matches[1] -ne $dn) { Err $c.Rel "파일명의 일차가 폴더($dn 일차)와 다름" }
+  $fileN = $matches[2]; $fileK = $matches[3]
   $fm = $c.Front
+  # 큰 사건(하위사건 목록이 있음) / 하위 사건(상위가 있음, 파일명 N일차-NN-K)
+  $parentLink = Scalar $fm '상위'; $subList = ListOf $fm '하위사건'
+  $isSub = ($parentLink -ne ""); $isParent = ($subList.Count -gt 0)
+  if ($isSub -and $isParent) { Err $c.Rel "상위와 하위사건이 모두 있음" }
+  if ($isSub -and -not $fileK) { Err $c.Rel "상위가 있는데 파일명이 하위 사건 꼴(N일차-NN-K 제목)이 아님" }
+  if (-not $isSub -and $fileK) { Err $c.Rel "파일명이 하위 사건 꼴(N일차-NN-K)인데 상위가 없음" }
+  $parentNote = $null
+  if ($isSub) {
+    $pl = LinkTargets $parentLink; if ($pl.Count -gt 0) { $parentNote = Resolve $pl[0] }
+    if (-not $parentNote) { Err $c.Rel "상위 [[$parentLink]] 노트 없음" }
+    elseif ($parentNote.Name -notmatch ('^' + [regex]::Escape("${dn}일차-$fileN") + ' ')) { Err $c.Rel "상위 '$($parentNote.Name)'의 순번이 파일명($fileN)과 다름" }
+    else { $names = @(); foreach ($t in (ListOf $parentNote.Front '하위사건')) { $lt = LinkTargets $t; if ($lt.Count -gt 0) { $names += $lt[0] } }; if ($names -notcontains $c.Name) { Err $parentNote.Rel "하위사건에 '$($c.Name)' 없음" } }
+  }
+  $subs = @()
+  if ($isParent) {
+    $k = 0
+    foreach ($t in $subList) {
+      $k++; $lt = LinkTargets $t; $sn = $null; if ($lt.Count -gt 0) { $sn = Resolve $lt[0] }
+      if (-not $sn) { Err $c.Rel "하위사건 [[${t}]] 노트 없음"; continue }
+      if ($sn.Name -notmatch ('^' + [regex]::Escape("${dn}일차-$fileN-$k") + ' ')) { Err $c.Rel "하위사건 $k 번째가 '${dn}일차-$fileN-$k …'가 아님: $($sn.Name)" }
+      $sl = LinkTargets (Scalar $sn.Front '상위'); if ($sl.Count -eq 0 -or $sl[0] -ne $c.Name) { Err $sn.Rel "상위가 [[$($c.Name)]]이 아님" }
+      $subs += $sn
+    }
+    $parentSubs[$c.Path] = $subs
+    if ($subs.Count -gt 0) {
+      # 큰 사건의 관련인물·관련세력·가담인물은 하위의 합집합 (등장 순), 취재가치는 가장 높은 등급, 시간은 첫 하위의 시간
+      $uP = @(); $uF = @(); $uJ = @(); $grades = @()
+      foreach ($sn in $subs) {
+        foreach ($x in (PathsOf $sn '관련인물')) { if ($uP -notcontains $x) { $uP += $x } }
+        foreach ($x in (PathsOf $sn '관련세력')) { if ($uF -notcontains $x) { $uF += $x } }
+        foreach ($x in (PathsOf $sn '가담인물')) { if ($uJ -notcontains $x) { $uJ += $x } }
+        $grades += (Scalar $sn.Front '취재가치')
+      }
+      $uJ = @($uJ | Where-Object { $uP -notcontains $_ })
+      if (((PathsOf $c '관련인물') -join '|') -ne ($uP -join '|')) { Err $c.Rel "큰 사건의 관련인물이 하위 사건 관련인물의 합집합(등장 순)과 다름`n    노트: $((PathsOf $c '관련인물') -join ', ')`n    합집합: $($uP -join ', ')" }
+      if (((PathsOf $c '관련세력') -join '|') -ne ($uF -join '|')) { Err $c.Rel "큰 사건의 관련세력이 하위 사건 관련세력의 합집합과 다름" }
+      if (((PathsOf $c '가담인물') -join '|') -ne ($uJ -join '|')) { Err $c.Rel "큰 사건의 가담인물이 하위 사건 가담인물의 합집합(관련인물 제외)과 다름`n    노트: $((PathsOf $c '가담인물') -join ', ')`n    합집합: $($uJ -join ', ')" }
+      $wantG = "☕ 일상"; if ($grades -contains "📰 사건") { $wantG = "📰 사건" }; if ($grades -contains "🔥 특종") { $wantG = "🔥 특종" }
+      if ((Scalar $fm '취재가치') -ne $wantG) { Err $c.Rel "큰 사건의 취재가치($(Scalar $fm '취재가치'))가 하위 중 가장 높은 등급($wantG)과 다름" }
+      if ((Scalar $fm '시간') -ne (Scalar $subs[0].Front '시간')) { Err $c.Rel "큰 사건의 시간이 첫 하위 사건의 시간($(Scalar $subs[0].Front '시간'))과 다름" }
+    }
+  }
   if ((Scalar $fm '일차') -ne "$dn") { Err $c.Rel "frontmatter 일차가 $dn 이 아님: '$(Scalar $fm '일차')'" }
   $dl = LinkTargets (Scalar $fm '일지'); if ($dl.Count -eq 0 -or $dl[0] -ne "${dn}일차") { Err $c.Rel "일지 속성이 [[${dn}일차]]가 아님" }
   $grade = Scalar $fm '취재가치'
@@ -241,8 +295,10 @@ foreach ($c in $caseNotes) {
     if (-not $r) { Err $c.Rel "관련세력 [[${t}]] 노트 없음"; $rel += "?" + $lt[0]; continue }
     if ($r.Folder -notmatch '^03 세력/') { Err $c.Rel "관련세력 [[$($lt[0])]]이 03 세력 노트가 아님" }
     $rel += $r.Path
-    if (-not $factionCases.ContainsKey($r.Path)) { $factionCases[$r.Path] = @() }
-    $factionCases[$r.Path] += $c
+    if (-not $isParent) {
+      if (-not $factionCases.ContainsKey($r.Path)) { $factionCases[$r.Path] = @() }
+      $factionCases[$r.Path] += $c
+    }
   }
   # 가담인물: 그 사건에 있었지만 관련인물에 넣지 않은 사람 (조직 주체 사건). 일지 표 칸에는 들어가지 않는다
   foreach ($t in (ListOf $fm '가담인물')) {
@@ -253,7 +309,7 @@ foreach ($c in $caseNotes) {
     if ($r.Folder -ne "02 인물") { Err $c.Rel "가담인물 [[$($lt[0])]]이 02 인물 노트가 아님"; continue }
     if ($relPeople -contains $r.Path) { Err $c.Rel "[[$($lt[0])]]이 관련인물과 가담인물에 모두 있음" }
     else { $relPeople += $r.Path; $present += $r.Path }
-    if (-not (LinksTo $c $r)) { Warn $c.Rel "가담인물 [[$($lt[0])]]이 본문에 링크되어 있지 않음" }
+    if (-not $isParent -and -not (LinksTo $c $r)) { Warn $c.Rel "가담인물 [[$($lt[0])]]이 본문에 링크되어 있지 않음" }
   }
   if ((ListOf $fm '가담인물').Count -gt 0 -and (ListOf $fm '관련세력').Count -eq 0) {
     Warn $c.Rel "가담인물이 있는데 관련세력이 비었음 (조직이 주체인 사건인지 확인)"
@@ -273,6 +329,7 @@ foreach ($c in $caseNotes) {
   # (명총희가 없던 사건의 가담인물은 '가담'이지 '만남'이 아니다)
   $meetPeople = @($heard)
   if ($present -contains "02 인물/000 명총희") { $meetPeople += $present }
+  if ($isParent) { $meetPeople = @() }   # 큰 사건은 하위 사건이 대신 센다
   foreach ($p in ($meetPeople | Select-Object -Unique)) {
     if ($p -eq "02 인물/000 명총희") { continue }
     if (-not $meetings.ContainsKey($p)) { $meetings[$p] = @() }
@@ -296,6 +353,17 @@ foreach ($c in $caseNotes) {
   if ($row.Summary -ne (Norm (Scalar $fm '요약'))) { Err $dayRel "'$($c.Name)' 행의 요약이 노트와 다름`n    표: $($row.Summary)`n    노트: $(Norm (Scalar $fm '요약'))" }
   if (($row.Related -join '|') -ne ($rel -join '|')) { Err $dayRel "'$($c.Name)' 행의 관련 인물 칸이 노트의 관련인물+관련세력과 다름`n    표: $($row.Related -join ', ')`n    노트: $($rel -join ', ')" }
   if ($row.Source -ne (Norm $src)) { Err $dayRel "'$($c.Name)' 행의 입수 경로('$($row.Source)')가 노트('$(Norm $src)')와 다름" }
+  if ($isSub) {
+    if (-not $row.Sub) { Err $dayRel "하위 사건 '$($c.Name)' 행의 사건 칸이 ↳ 로 시작하지 않음" }
+    elseif ($parentNote -and (-not $row.Parent -or $row.Parent.Path -ne $parentNote.Path)) { Err $dayRel "'$($c.Name)' 행이 큰 사건 '$($parentNote.Name)' 행 아래에 있지 않음" }
+  } elseif ($row.Sub) { Err $dayRel "'$($c.Name)' 행에 ↳ 표시가 있는데 하위 사건이 아님" }
+  if ($isParent -and $subs.Count -gt 0) {
+    $all = $days[$dn].Rows; $idx = [array]::IndexOf($all, $row)
+    for ($i = 0; $i -lt $subs.Count; $i++) {
+      $rr = $null; if ($idx + 1 + $i -lt $all.Count) { $rr = $all[$idx + 1 + $i] }
+      if (-not $rr -or -not $rr.Sub -or $rr.Target.Path -ne $subs[$i].Path) { Err $dayRel "큰 사건 '$($c.Name)' 행 바로 아래에 하위 행이 순서대로 없음"; break }
+    }
+  }
 }
 # 표 행 → 노트: 사건 행은 같은 일차 폴더의 사건 노트, 📅 행은 이벤트 노트
 foreach ($dn in $days.Keys) {

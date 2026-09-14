@@ -170,7 +170,8 @@ export async function tableEventPairs(
   const pairs = new Map<string, EventPair>()
   const seen = new Set<SimpleSlug>()
   for (const r of rows) {
-    if ((r.kind !== "news" && r.kind !== "scoop") || seen.has(r.id)) continue
+    // 큰 사건 행의 관련 인물 칸은 하위 사건의 합집합이라, 선은 하위 행에서만 만든다
+    if (r.hasSubs || (r.kind !== "news" && r.kind !== "scoop") || seen.has(r.id)) continue
     seen.add(r.id)
     const eventId = r.id
     // 이 사건으로 이어지는 두 사람: 관련 인물끼리 + 명총희와 직접 전해 준 사람 (같은 쌍은 한 번만)
@@ -390,6 +391,10 @@ export type DayRow = {
   sources: SimpleSlug[]
   // 링크를 절대 주소로 고친 행 복사본
   row: Element
+  // 하위 사건 행이면 그 큰 사건(바로 위의 하위가 아닌 행)의 사건 노트. 사건 칸이 "↳"로 시작하는 행
+  parent?: SimpleSlug
+  // 큰 사건 행(뒤에 하위 행이 붙는 행). 관련 인물 칸은 하위의 합집합이라 선·만남 계산에는 쓰지 않는다
+  hasSubs?: boolean
 }
 
 // 일지 데이터(bn-days.json)를 일차 순서대로 읽는다. 행은 페이지에 보이는 HTML 그대로 되살린다.
@@ -430,10 +435,12 @@ async function readDayTables(
     const sourceCol = heads.findIndex((h) => h.includes("입수"))
     if (eventCol < 0 || relatedCol < 0) continue
     thead ??= table.querySelector("thead")
+    let lastTop: DayRow | null = null
     for (const tr of table.querySelectorAll("tbody tr")) {
       const cells = tr.querySelectorAll("td")
       const id = slugsIn(cells[eventCol])[0]
       if (!id) continue
+      const isSub = (cells[eventCol]?.textContent ?? "").trimStart().startsWith("↳")
       // 등급 이름표(bn-lv-*)는 행 안 어디에 있어도 된다 (지금은 시간 칸)
       const kind = tr.querySelector(".bn-lv-scoop")
         ? "scoop"
@@ -446,7 +453,7 @@ async function readDayTables(
       row.querySelectorAll("a[href]").forEach((a) => {
         a.setAttribute("href", new URL(a.getAttribute("href")!, dayUrl).toString())
       })
-      rows.push({
+      const dayRow: DayRow = {
         day,
         dayN,
         id,
@@ -454,7 +461,14 @@ async function readDayTables(
         related: new Set(slugsIn(cells[relatedCol])),
         sources: directSources(cells[sourceCol]),
         row,
-      })
+      }
+      if (isSub && lastTop) {
+        dayRow.parent = lastTop.id
+        lastTop.hasSubs = true
+      } else if (!isSub) {
+        lastTop = dayRow
+      }
+      rows.push(dayRow)
     }
   }
   return { thead, rows, joined: dayData?.cases ?? {} }
@@ -481,7 +495,7 @@ export async function showLinkPopup(p: {
   const { thead, rows, joined } = await readDayTables(p.currentSlug, p.data, p.resolveLink)
   const picked = new Map<SimpleSlug, DayRow>()
   for (const r of rows) {
-    if (r.kind === "daily" || picked.has(r.id)) continue
+    if (r.kind === "daily" || r.hasSubs || picked.has(r.id)) continue
     const bothInRow = r.related.has(p.a) && r.related.has(p.b)
     const joinedHere =
       !!p.member &&
@@ -491,7 +505,7 @@ export async function showLinkPopup(p: {
   }
 
   const tbody = document.createElement("tbody")
-  for (const r of picked.values()) tbody.append(r.row)
+  for (const r of withParents(rows, [...picked.values()])) tbody.append(r.row)
   for (const id of known) {
     if (picked.has(id)) continue
     const href = new URL(resolveRelative(p.currentSlug, id), window.location.toString())
@@ -506,6 +520,7 @@ export async function showLinkPopup(p: {
     content.className = "bn-case-table"
     content.append(table)
     await decorateLinks(content, p.data, p.resolveLink, p.currentSlug)
+    document.dispatchEvent(new CustomEvent("bn-table-ready", { detail: content }))
   } else {
     content = document.createElement("div")
     content.className = "bn-edge-empty"
@@ -513,7 +528,7 @@ export async function showLinkPopup(p: {
   }
 
   const eventCount = [...picked.values()].filter((r) => r.kind === "event").length
-  const caseCount = tbody.children.length - eventCount
+  const caseCount = picked.size - eventCount + (known.size > 0 ? [...known].filter((id) => !picked.has(id)).length : 0)
   const count = `함께 엮인 사건 ${caseCount}건` + (eventCount > 0 ? ` · 이벤트 ${eventCount}건` : "")
   showEdgePopup(p.title, p.kind ? `${p.kind} · ${count}` : count, content)
 }
@@ -530,6 +545,7 @@ export async function caseNodeLinks(
   const out: { source: SimpleSlug; target: SimpleSlug }[] = []
   const seen = new Set<string>()
   for (const r of rows) {
+    if (r.hasSubs) continue
     for (const t of [...r.related, ...(joined[r.id] ?? [])]) {
       const key = r.id + "|" + t
       if (seen.has(key) || t === r.id) continue
@@ -552,13 +568,20 @@ export async function entityDayRows(
   id: SimpleSlug,
 ): Promise<{ thead: Element | null; rows: DayRow[] }> {
   const { thead, rows, joined } = await readDayTables(currentSlug, data, resolveLink)
-  return {
-    thead,
-    rows: rows.filter(
-      (r) =>
-        r.related.has(id) ||
+  const hits = rows.filter(
+    (r) =>
+      !r.hasSubs &&
+      (r.related.has(id) ||
         (joined[r.id] ?? []).includes(id) ||
-        (id === ME && r.sources.length > 0),
-    ),
-  }
+        (id === ME && r.sources.length > 0)),
+  )
+  return { thead, rows: withParents(rows, hits) }
+}
+
+// 고른 행 목록에, 하위 사건 행의 큰 사건 행을 그 하위들 바로 앞에 끼워 넣는다 (일지 순서 유지).
+// 큰 사건 행은 문맥용이다 — 선·건수 계산에는 넣지 않는다.
+export function withParents(all: DayRow[], hits: DayRow[]): DayRow[] {
+  const hitSet = new Set(hits)
+  const parents = new Set(hits.map((r) => r.parent).filter((p): p is SimpleSlug => !!p))
+  return all.filter((r) => hitSet.has(r) || (r.hasSubs && parents.has(r.id) && !hitSet.has(r)))
 }

@@ -15,6 +15,7 @@ type Field = { key: string; label: string; kind: Kind }
 
 const FIELDS: Record<string, Field[]> = {
   사건: [
+    { key: "상위", label: "큰 사건", kind: "links" },
     { key: "시간", label: "시간", kind: "text" },
     { key: "장소", label: "장소", kind: "links" },
     { key: "취재가치", label: "취재가치", kind: "badge" },

@@ -58,6 +58,7 @@ async function fillTable(section: HTMLElement, fullSlug: FullSlug) {
   await decorateLinks(wrap, data, resolveLink, fullSlug)
   if (status) status.replaceWith(wrap)
   else section.append(wrap)
+  document.dispatchEvent(new CustomEvent("bn-table-ready", { detail: wrap }))
 }
 
 document.addEventListener("nav", (e: CustomEventMap["nav"]) => {

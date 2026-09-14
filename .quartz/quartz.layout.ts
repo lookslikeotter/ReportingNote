@@ -6,6 +6,7 @@ import FontLoader from "./quartz/components/FontLoader"
 import RefreshButton from "./quartz/components/RefreshButton"
 import DayLegend from "./quartz/components/DayLegend"
 import EntityEvents from "./quartz/components/EntityEvents"
+import DayTable from "./quartz/components/DayTable"
 import BnTagList from "./quartz/components/BnTagList"
 import BnFooter from "./quartz/components/BnFooter"
 import BnHead from "./quartz/components/BnHead"
@@ -39,7 +40,8 @@ export const sharedPageComponents: SharedLayout = {
   head: BnHead(),
   header: [],
   // 본문 아래: 인물·세력 페이지의 '사건 기록' 표 (다른 페이지에서는 아무것도 그리지 않음), 인물·세력 링크 칩 스크립트
-  afterBody: [EntityEvents(), LinkChips(), ExplorerDefaults(), FontLoader()],
+  // DayTable: 일지 표의 큰 사건 펼치기 (화면에는 안 그리고 스크립트만)
+  afterBody: [EntityEvents(), LinkChips(), DayTable(), ExplorerDefaults(), FontLoader()],
   footer: BnFooter(),
 }
 

@@ -990,3 +990,54 @@ a.internal.bn-chip {
     font-size: 13px;
   }
 }
+
+// 봉누도2: 일지 표의 큰 사건/하위 사건 (DayTable.tsx · dayTable.inline.ts)
+// 하위 사건 행(bn-sub)은 사건 칸을 들여쓰고, 접힌 행(bn-collapsed)은 숨긴다. 큰 사건 행의 ▸ 버튼(bn-toggle)으로 편다.
+tr.bn-sub {
+  & > td {
+    color: var(--darkgray);
+  }
+}
+body[data-slug$="일차"] article table,
+body[data-slug="index"] article table,
+body[data-slug="01-일지/사건-목록"] article table,
+.bn-case-table:not(.bn-has-day) table {
+  & tr.bn-sub > td:nth-child(2) {
+    padding-left: 1.6em;
+  }
+}
+.bn-case-table.bn-has-day table tr.bn-sub > td:nth-child(3) {
+  padding-left: 1.6em;
+}
+tr.bn-collapsed {
+  display: none !important;
+}
+.bn-toggle {
+  all: unset;
+  cursor: pointer;
+  display: inline-block;
+  width: 1.2em;
+  margin-right: 0.2em;
+  color: var(--gray);
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  &:hover {
+    color: var(--secondary);
+  }
+}
+tr.bn-parent > td:nth-child(2) a {
+  font-weight: 700;
+}
+@media all and (max-width: 800px) {
+  body[data-slug$="일차"] article table,
+  body[data-slug="index"] article table,
+  body[data-slug="01-일지/사건-목록"] article table {
+    & tr.bn-sub {
+      margin-left: 1.2rem;
+    }
+    & tr.bn-sub > td:nth-child(2) {
+      padding-left: 0;
+    }
+  }
+}
