@@ -57,7 +57,8 @@ const DayNav: QuartzComponent = ({ fileData, allFiles, displayClass }: QuartzCom
   if (type === "사건") {
     const ci = caseIndex(fileData.frontmatter?.title ?? "")
     if (!ci) return null
-    const folder = here.slice(0, here.lastIndexOf("/") + 1)
+    // 그날의 사건 폴더 전체 (큰 사건별 하위 폴더 포함)
+    const folder = `01-일지/사건/${ci.day}일차/`
     type Sib = { ci: { day: number; n: number; k?: number }; f: (typeof allFiles)[number] }
     const all = allFiles
       .filter((f) => f.slug?.startsWith(folder))

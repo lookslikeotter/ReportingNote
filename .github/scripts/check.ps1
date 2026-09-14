@@ -206,8 +206,8 @@ if ($eventList) {
 }
 
 # ── 3. 사건 노트 ↔ 일지 표 ──
-$caseNotes = $notes | Where-Object { $_.Folder -match '^01 일지/사건/(\d+)일차$' }
-$eventNotes = $notes | Where-Object { $_.Folder -eq "01 일지/이벤트" }
+$caseNotes = $notes | Where-Object { $_.Folder -match '^01 일지/사건/(\d+)일차(/|$)' }
+$eventNotes = @()
 $people = $notes | Where-Object { $_.Folder -eq "02 인물" -and $_.Name -ne "인물 목록" }
 $factions = $notes | Where-Object { $_.Folder -match '^03 세력/(기관|갱|사업체)$' }
 $meetings = @{}   # 인물 Path → 일차 목록
@@ -217,7 +217,7 @@ $validStatus = @("진행중", "종결", "미궁")
 $parentSubs = @{}   # 큰 사건 Path → 하위 사건 노트 목록
 function PathsOf($note, $key) { $o = @(); foreach ($t in (ListOf $note.Front $key)) { $lt = LinkTargets $t; if ($lt.Count -eq 0) { continue }; $r = Resolve $lt[0]; if ($r -and $o -notcontains $r.Path) { $o += $r.Path } }; return $o }
 foreach ($c in $caseNotes) {
-  $dn = [int]([regex]::Match($c.Folder, '(\d+)일차$').Groups[1].Value)
+  $dn = [int]([regex]::Match($c.Folder, '^01 일지/사건/(\d+)일차').Groups[1].Value)
   if ($c.Name -notmatch '^(\d+)일차-(\d{2})(?:-(\d+))? .+$') { Err $c.Rel "파일명이 'N일차-NN 제목' 또는 'N일차-NN-K 제목' 꼴이 아님"; continue }
   if ([int]$matches[1] -ne $dn) { Err $c.Rel "파일명의 일차가 폴더($dn 일차)와 다름" }
   $fileN = $matches[2]; $fileK = $matches[3]
@@ -226,6 +226,8 @@ foreach ($c in $caseNotes) {
   $parentLink = Scalar $fm '상위'; $subList = ListOf $fm '하위사건'
   $isSub = ($parentLink -ne ""); $isParent = ($subList.Count -gt 0)
   if ($isSub -and $isParent) { Err $c.Rel "상위와 하위사건이 모두 있음" }
+  if ($isParent -and $c.Folder -ne "01 일지/사건/${dn}일차/$($c.Name)") { Err $c.Rel "큰 사건은 자기 이름의 폴더(${dn}일차/$($c.Name)/) 안에 둔다" }
+  if (-not $isParent -and -not $isSub -and $c.Folder -ne "01 일지/사건/${dn}일차") { Err $c.Rel "단독 사건은 ${dn}일차/ 바로 아래에 둔다" }
   if ($isSub -and -not $fileK) { Err $c.Rel "상위가 있는데 파일명이 하위 사건 꼴(N일차-NN-K 제목)이 아님" }
   if (-not $isSub -and $fileK) { Err $c.Rel "파일명이 하위 사건 꼴(N일차-NN-K)인데 상위가 없음" }
   $parentNote = $null
@@ -233,6 +235,7 @@ foreach ($c in $caseNotes) {
     $pl = LinkTargets $parentLink; if ($pl.Count -gt 0) { $parentNote = Resolve $pl[0] }
     if (-not $parentNote) { Err $c.Rel "상위 [[$parentLink]] 노트 없음" }
     elseif ($parentNote.Name -notmatch ('^' + [regex]::Escape("${dn}일차-$fileN") + ' ')) { Err $c.Rel "상위 '$($parentNote.Name)'의 순번이 파일명($fileN)과 다름" }
+    elseif ($c.Folder -ne $parentNote.Folder) { Err $c.Rel "하위 사건은 큰 사건과 같은 폴더($($parentNote.Folder)/)에 둔다" }
     else { $names = @(); foreach ($t in (ListOf $parentNote.Front '하위사건')) { $lt = LinkTargets $t; if ($lt.Count -gt 0) { $names += $lt[0] } }; if ($names -notcontains $c.Name) { Err $parentNote.Rel "하위사건에 '$($c.Name)' 없음" } }
   }
   $subs = @()
@@ -348,6 +351,7 @@ foreach ($c in $caseNotes) {
   if ($rows.Count -gt 1) { Err $dayRel "사건 '$($c.Name)'의 행이 $($rows.Count)개" }
   $row = $rows[0]
   $wantKind = "daily"; if ($gradeSpan.ContainsKey($grade)) { switch ($gradeSpan[$grade]) { "bn-lv-news" { $wantKind = "news" } "bn-lv-scoop" { $wantKind = "scoop" } } }
+  if ($tags -contains "이벤트") { if (-not $isParent) { Err $c.Rel "이벤트 태그는 큰 사건에만 단다" }; $wantKind = "event" }
   if ($row.Kind -ne $wantKind) { Err $dayRel "'$($c.Name)' 행의 등급 이름표가 취재가치($grade)와 다름" }
   if ($row.Time -ne (Scalar $fm '시간')) { Err $dayRel "'$($c.Name)' 행의 시간($($row.Time))이 노트($(Scalar $fm '시간'))와 다름" }
   if ($row.Summary -ne (Norm (Scalar $fm '요약'))) { Err $dayRel "'$($c.Name)' 행의 요약이 노트와 다름`n    표: $($row.Summary)`n    노트: $(Norm (Scalar $fm '요약'))" }
@@ -381,13 +385,8 @@ foreach ($c in $caseNotes) {
 foreach ($dn in $days.Keys) {
   foreach ($r in $days[$dn].Rows) {
     $t = $r.Target
-    if ($r.Kind -eq "event") {
-      if ($t.Folder -ne "01 일지/이벤트") { Err $days[$dn].Note.Rel "📅 행이 이벤트 노트가 아닌 '$($t.Name)'을 가리킴" }
-      elseif ((Scalar $t.Front '첫단서') -ne "$dn") { Err $days[$dn].Note.Rel "📅 행 '$($t.Name)'의 첫단서($(Scalar $t.Front '첫단서'))가 이 일차($dn)와 다름" }
-    } elseif ($t.Folder -ne "01 일지/사건/${dn}일차") {
-      if ($t.Folder -eq "01 일지/이벤트") { Err $days[$dn].Note.Rel "이벤트 '$($t.Name)' 행에 📅 이름표(bn-lv-event)가 없음" }
-      else { Err $days[$dn].Note.Rel "행이 ${dn}일차 사건 노트가 아닌 '$($t.Rel)'을 가리킴" }
-    }
+    if ($r.Kind -eq "event" -and (ListOf $t.Front 'tags') -notcontains "이벤트") { Err $days[$dn].Note.Rel "📅 행 '$($t.Name)'에 이벤트 태그가 없음 (📅 띠는 이벤트 태그가 붙은 큰 사건만)" }
+    if ($t.Folder -notmatch ('^' + [regex]::Escape("01 일지/사건/${dn}일차") + '(/|$)')) { Err $days[$dn].Note.Rel "행이 ${dn}일차 사건 노트가 아닌 '$($t.Rel)'을 가리킴" }
   }
 }
 # 이벤트 노트 → 첫단서 일차 표에 📅 행
