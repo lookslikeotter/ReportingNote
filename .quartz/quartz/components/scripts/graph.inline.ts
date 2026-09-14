@@ -39,6 +39,7 @@ import {
   normalizeName,
   pairKey,
   showLinkPopup,
+  ME,
 } from "./bongnudo"
 
 // 봉누도2 — Quartz v4.5.2 graph.inline.ts 수정본 (오른쪽 아래 그래프와 전체 그래프).
@@ -52,9 +53,27 @@ import {
 //   - 거리는 언제나 사건 인연이 정한다. 관계 종류는 색·굵기만 정한다 (적대라고 멀어지지 않는다)
 //     본문 링크는 어떤 노드를 보여 줄지(이웃 계산)에만 쓰고 선으로 그리지 않는다
 //   - 선에 마우스를 올리면 하이라이트, 누르면 창 (사건 표 · 소속 · 세력 관계)
-//   - 사이드바 그래프는 INITIAL_ZOOM 배율로 확대해서 시작한다 (전체 그래프는 원래 배율)
+//   - 배치를 미리 계산한 뒤, 노드가 다 들어오도록 배율·위치를 맞춰서 시작한다 (FIT_MAX_* 까지만 확대)
+//   - 왼쪽 위 '명총희 숨기기' 버튼: 명총희는 거의 모든 인물과 이어진 허브라, 빼면 인물끼리의 관계가 드러난다.
+//     상태는 브라우저에 남고(bn-hide-me), 명총희 본인 페이지에서는 숨기지 않는다
 
-const INITIAL_ZOOM = 1.5
+const FIT_PAD = 40
+const FIT_MAX_LOCAL = 2.5
+const FIT_MAX_GLOBAL = 2
+
+const HIDE_ME_KEY = "bn-hide-me"
+function hideMe(): boolean {
+  try {
+    return localStorage.getItem(HIDE_ME_KEY) === "1"
+  } catch {
+    return false
+  }
+}
+function setHideMe(v: boolean) {
+  try {
+    localStorage.setItem(HIDE_ME_KEY, v ? "1" : "0")
+  } catch {}
+}
 
 // 세력 관계 선 모양. 세력 노트의 관계 태그(예: 경쟁/병원)로 세력끼리 잇는다.
 // 관계 종류는 색·굵기만 정한다. 거리는 사건 인연(함께 엮인 사건 수)이 정한다 —
@@ -116,6 +135,21 @@ type TweenNode = {
 async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   const slug = simplifySlug(fullSlug)
   removeAllChildren(graph)
+
+  // 명총희 숨기기 버튼 (그래프 왼쪽 위). 누르면 아래 그래프·전체 그래프를 다시 그린다. 본인 페이지에서는 두지 않는다
+  if (slug !== ME) {
+    const btn = document.createElement("button")
+    btn.className = "bn-me-toggle"
+    const on = hideMe()
+    btn.textContent = on ? "명총희 보이기" : "명총희 숨기기"
+    btn.setAttribute("aria-pressed", String(on))
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation()
+      setHideMe(!hideMe())
+      document.dispatchEvent(new CustomEvent("bn-me-toggle") as Event)
+    })
+    graph.append(btn)
+  }
   // 글꼴을 다 불러온 뒤에 그려야 이름표가 대체 글꼴로 그려지지 않는다
   await document.fonts?.ready
   const isGlobal = graph.classList.contains("global-graph-container")
@@ -224,6 +258,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   for (const id of [...neighbourhood]) {
     if (!isInfoNode(id)) neighbourhood.delete(id)
   }
+  // 명총희 숨기기 (본인 페이지에서는 그대로)
+  if (hideMe() && slug !== ME) neighbourhood.delete(ME)
 
   const nodes: NodeData[] = [...neighbourhood].map((id) => ({
     id,
@@ -280,6 +316,10 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
 
   const radius = (Math.min(width, height) / 2) * 0.8
   if (enableRadial) simulation.force("radial", forceRadial(radius).strength(0.2))
+
+  // 배치를 미리 계산해 두고 시작한다 (한 화면에 맞추려면 최종 위치가 필요)
+  simulation.stop()
+  for (let i = 0; i < 300; i++) simulation.tick()
 
   // precompute style prop strings as pixi doesn't support css variables
   const cssVars = [
@@ -609,12 +649,21 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     const canvasSelection = select<HTMLCanvasElement, NodeData>(app.canvas)
     canvasSelection.call(zoomBehavior)
 
-    // 사이드바 그래프는 가운데를 기준으로 확대한 채 시작
-    if (!isGlobal && INITIAL_ZOOM !== 1) {
-      const k = INITIAL_ZOOM
+    // 노드가 다 들어오도록 배율·위치를 맞춰서 시작 (사이드바는 상자 크기에 맞춰 확대, 전체 그래프는 덜)
+    if (graphData.nodes.length > 0) {
+      const xs = graphData.nodes.map((n) => n.x ?? 0)
+      const ys = graphData.nodes.map((n) => n.y ?? 0)
+      const minX = Math.min(...xs) - FIT_PAD
+      const maxX = Math.max(...xs) + FIT_PAD
+      const minY = Math.min(...ys) - FIT_PAD
+      const maxY = Math.max(...ys) + FIT_PAD
+      const fitK = Math.min(width / (maxX - minX), height / (maxY - minY))
+      const k = Math.max(0.25, Math.min(isGlobal ? FIT_MAX_GLOBAL : FIT_MAX_LOCAL, fitK))
+      const cx = (minX + maxX) / 2 + width / 2
+      const cy = (minY + maxY) / 2 + height / 2
       canvasSelection.call(
         zoomBehavior.transform,
-        zoomIdentity.translate((width / 2) * (1 - k), (height / 2) * (1 - k)).scale(k),
+        zoomIdentity.translate(width / 2 - k * cx, height / 2 - k * cy).scale(k),
       )
     }
   }
@@ -787,6 +836,17 @@ document.addEventListener("nav", async (e: CustomEventMap["nav"]) => {
       }
     }
   }
+
+  // 명총희 숨기기 버튼: 아래 그래프를 다시 그리고, 전체 그래프가 열려 있으면 그것도
+  const handleMeToggle = () => {
+    void renderLocalGraph()
+    if (containers.some((c) => c.classList.contains("active"))) {
+      cleanupGlobalGraphs()
+      void renderGlobalGraph()
+    }
+  }
+  document.addEventListener("bn-me-toggle", handleMeToggle)
+  window.addCleanup(() => document.removeEventListener("bn-me-toggle", handleMeToggle))
 
   async function shortcutHandler(e: HTMLElementEventMap["keydown"]) {
     if (e.key === "g" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
