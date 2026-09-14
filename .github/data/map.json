@@ -1,0 +1,141 @@
+{
+  "points": [
+    {
+      "name": "2등급 헬스장",
+      "category": "운동",
+      "x": -482,
+      "y": 296,
+      "description": null
+    },
+    {
+      "name": "건설",
+      "category": "시민 직업",
+      "x": 1375,
+      "y": -2081,
+      "description": null
+    },
+    {
+      "name": "교도소",
+      "category": "범죄",
+      "x": 786,
+      "y": -1695,
+      "description": null
+    },
+    {
+      "name": "낚시",
+      "category": "시민 직업",
+      "x": 1535,
+      "y": 3809,
+      "description": null
+    },
+    {
+      "name": "노래방",
+      "category": "여가",
+      "x": 107,
+      "y": 16,
+      "description": null
+    },
+    {
+      "name": "레이싱",
+      "category": "여가",
+      "x": 999,
+      "y": 2398,
+      "description": null
+    },
+    {
+      "name": "벌목",
+      "category": "시민 직업",
+      "x": 1845,
+      "y": 4861,
+      "description": null
+    },
+    {
+      "name": "양식점",
+      "category": "시민 직업",
+      "x": -1016,
+      "y": -1377,
+      "description": null
+    },
+    {
+      "name": "운송",
+      "category": "시민 직업",
+      "x": -1100,
+      "y": -2089,
+      "description": null
+    },
+    {
+      "name": "운전면허",
+      "category": "차량",
+      "x": 240,
+      "y": 382,
+      "description": null
+    },
+    {
+      "name": "차량 상점",
+      "category": "차량",
+      "x": -31,
+      "y": -1099,
+      "description": null
+    },
+    {
+      "name": "채광",
+      "category": "시민 직업",
+      "x": 2681,
+      "y": 5361,
+      "description": null
+    },
+    {
+      "name": "청소",
+      "category": "시민 직업",
+      "x": 224,
+      "y": -795,
+      "description": null
+    },
+    {
+      "name": "카페",
+      "category": "시민 직업",
+      "x": -864,
+      "y": -1090,
+      "description": null
+    },
+    {
+      "name": "환경미화",
+      "category": "시민 직업",
+      "x": -316,
+      "y": -1545,
+      "description": null
+    }
+  ],
+  "orgs": [
+    {
+      "name": "EMS",
+      "x": -921,
+      "y": -728,
+      "description": null
+    },
+    {
+      "name": "언론",
+      "x": -1039,
+      "y": -2145,
+      "description": null
+    },
+    {
+      "name": "교통정비공사",
+      "x": 936,
+      "y": -1039,
+      "description": null
+    },
+    {
+      "name": "경찰",
+      "x": 443,
+      "y": -984,
+      "description": null
+    },
+    {
+      "name": "시청",
+      "x": 233,
+      "y": -413,
+      "description": null
+    }
+  ]
+}

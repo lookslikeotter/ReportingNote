@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1768" viewBox="0 0 900 1768" font-family="Pretendard Variable, Pretendard, Apple SD Gothic Neo, Malgun Gothic, sans-serif">
+<rect width="900" height="1768" rx="12" fill="#ffffff" stroke="#e5e3df"/>
+<text x="20" y="32" font-size="18" font-weight="700" fill="#1a1a1a">봉누도 거점 약도</text>
+<text x="20" y="52" font-size="12" fill="#7d7a75">봉누도 따라가기 지도 데이터 기준 · 상대 위치만 맞고 도로·지형은 없음</text>
+<text x="880" y="32" text-anchor="end" font-size="14" font-weight="700" fill="#7d7a75">N ↑</text>
+<line x1="679.1519750055791" y1="1698" x2="880" y2="1698" stroke="#37352f" stroke-width="2"/>
+<text x="779.5759875027895" y="1692" text-anchor="middle" font-size="11" fill="#37352f">1 km</text>
+<circle cx="829.7" cy="70.3" r="6" fill="#1aae39" stroke="#ffffff" stroke-width="1.5"/>
+<text x="841.7" y="75.2" text-anchor="start" font-size="14" font-weight="500" fill="#1a1a1a" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">채광</text>
+<circle cx="661.8" cy="170.7" r="6" fill="#1aae39" stroke="#ffffff" stroke-width="1.5"/>
+<text x="673.8" y="175.6" text-anchor="start" font-size="14" font-weight="500" fill="#1a1a1a" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">벌목</text>
+<circle cx="599.5" cy="382.0" r="6" fill="#1aae39" stroke="#ffffff" stroke-width="1.5"/>
+<text x="611.5" y="386.9" text-anchor="start" font-size="14" font-weight="500" fill="#1a1a1a" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">낚시</text>
+<circle cx="491.9" cy="665.4" r="6" fill="#d6409f" stroke="#ffffff" stroke-width="1.5"/>
+<text x="503.9" y="670.3" text-anchor="start" font-size="14" font-weight="500" fill="#1a1a1a" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">레이싱</text>
+<circle cx="339.4" cy="1070.3" r="6" fill="#dfab01" stroke="#ffffff" stroke-width="1.5"/>
+<text x="351.4" y="1075.2" text-anchor="start" font-size="14" font-weight="500" fill="#1a1a1a" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">운전면허</text>
+<circle cx="194.4" cy="1087.6" r="6" fill="#f0a020" stroke="#ffffff" stroke-width="1.5"/>
+<text x="206.4" y="1092.5" text-anchor="start" font-size="14" font-weight="500" fill="#1a1a1a" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">2등급 헬스장</text>
+<circle cx="312.7" cy="1143.8" r="6" fill="#d6409f" stroke="#ffffff" stroke-width="1.5"/>
+<text x="324.7" y="1148.7" text-anchor="start" font-size="14" font-weight="500" fill="#1a1a1a" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">노래방</text>
+<rect x="332.0" y="1224.0" width="12" height="12" rx="2" fill="#0075de" stroke="#ffffff" stroke-width="1.5"/>
+<text x="350.0" y="1234.9" text-anchor="start" font-size="14" font-weight="700" fill="#1a1a1a" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">시청 본부</text>
+<rect x="100.2" y="1287.3" width="12" height="12" rx="2" fill="#0075de" stroke="#ffffff" stroke-width="1.5"/>
+<text x="118.2" y="1298.2" text-anchor="start" font-size="14" font-weight="700" fill="#1a1a1a" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">병원 본부</text>
+<circle cx="336.2" cy="1306.7" r="6" fill="#1aae39" stroke="#ffffff" stroke-width="1.5"/>
+<text x="348.2" y="1311.6" text-anchor="start" font-size="14" font-weight="500" fill="#1a1a1a" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">청소</text>
+<rect x="374.2" y="1338.7" width="12" height="12" rx="2" fill="#0075de" stroke="#ffffff" stroke-width="1.5"/>
+<text x="392.2" y="1349.6" text-anchor="start" font-size="14" font-weight="700" fill="#1a1a1a" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">경찰 본부</text>
+<rect x="473.2" y="1349.7" width="12" height="12" rx="2" fill="#0075de" stroke="#ffffff" stroke-width="1.5"/>
+<text x="491.2" y="1360.6" text-anchor="start" font-size="14" font-weight="700" fill="#1a1a1a" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">교통정비공사 본부</text>
+<circle cx="117.7" cy="1366.0" r="6" fill="#1aae39" stroke="#ffffff" stroke-width="1.5"/>
+<text x="129.7" y="1370.9" text-anchor="start" font-size="14" font-weight="500" fill="#1a1a1a" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">카페</text>
+<circle cx="285.0" cy="1367.8" r="6" fill="#dfab01" stroke="#ffffff" stroke-width="1.5"/>
+<text x="297.0" y="1372.7" text-anchor="start" font-size="14" font-weight="500" fill="#1a1a1a" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">차량 상점</text>
+<circle cx="87.2" cy="1423.6" r="6" fill="#1aae39" stroke="#ffffff" stroke-width="1.5"/>
+<text x="99.2" y="1428.5" text-anchor="start" font-size="14" font-weight="500" fill="#1a1a1a" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">양식점</text>
+<circle cx="227.8" cy="1457.4" r="6" fill="#1aae39" stroke="#ffffff" stroke-width="1.5"/>
+<text x="239.8" y="1462.3" text-anchor="start" font-size="14" font-weight="500" fill="#1a1a1a" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">환경미화</text>
+<circle cx="449.1" cy="1487.5" r="6" fill="#e03131" stroke="#ffffff" stroke-width="1.5"/>
+<text x="461.1" y="1492.4" text-anchor="start" font-size="14" font-weight="500" fill="#1a1a1a" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">교도소</text>
+<circle cx="567.4" cy="1565.0" r="6" fill="#1aae39" stroke="#ffffff" stroke-width="1.5"/>
+<text x="579.4" y="1569.9" text-anchor="start" font-size="14" font-weight="500" fill="#1a1a1a" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">건설</text>
+<circle cx="70.3" cy="1566.6" r="6" fill="#1aae39" stroke="#ffffff" stroke-width="1.5"/>
+<text x="58.3" y="1571.5" text-anchor="end" font-size="14" font-weight="500" fill="#1a1a1a" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">운송</text>
+<rect x="76.5" y="1571.9" width="12" height="12" rx="2" fill="#0075de" stroke="#ffffff" stroke-width="1.5"/>
+<text x="94.5" y="1582.8" text-anchor="start" font-size="14" font-weight="700" fill="#1a1a1a" stroke="#ffffff" stroke-width="3" paint-order="stroke" stroke-linejoin="round">봉누도방송국 본부</text>
+<rect x="20" y="1722" width="12" height="12" rx="2" fill="#0075de"/><text x="38" y="1732" font-size="12" fill="#37352f">기관 본부</text>
+<circle cx="122" cy="1728" r="6" fill="#1aae39"/><text x="134" y="1732" font-size="12" fill="#37352f">시민 직업</text>
+<circle cx="218" cy="1728" r="6" fill="#dfab01"/><text x="230" y="1732" font-size="12" fill="#37352f">차량</text>
+<circle cx="278" cy="1728" r="6" fill="#d6409f"/><text x="290" y="1732" font-size="12" fill="#37352f">여가</text>
+<circle cx="338" cy="1728" r="6" fill="#f0a020"/><text x="350" y="1732" font-size="12" fill="#37352f">운동</text>
+<circle cx="398" cy="1728" r="6" fill="#e03131"/><text x="410" y="1732" font-size="12" fill="#37352f">범죄</text>
+</svg>
