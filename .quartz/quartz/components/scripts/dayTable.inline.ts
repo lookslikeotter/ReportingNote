@@ -43,6 +43,10 @@ function markTable(table: HTMLTableElement, collapsible: boolean) {
       for (const k of kids) k.classList.toggle("bn-collapsed", !open)
     })
     cell.prepend(btn)
+    const count = document.createElement("span")
+    count.className = "bn-count"
+    count.textContent = `${children.length}건`
+    cell.append(count)
   }
 
   for (const tr of table.querySelectorAll<HTMLTableRowElement>("tbody > tr")) {

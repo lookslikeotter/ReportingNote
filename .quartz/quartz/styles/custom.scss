@@ -992,10 +992,60 @@ a.internal.bn-chip {
 }
 
 // 봉누도2: 일지 표의 큰 사건/하위 사건 (DayTable.tsx · dayTable.inline.ts)
-// 하위 사건 행(bn-sub)은 사건 칸을 들여쓰고, 접힌 행(bn-collapsed)은 숨긴다. 큰 사건 행의 ▸ 버튼(bn-toggle)으로 편다.
-tr.bn-sub {
-  & > td {
-    color: var(--darkgray);
+// 큰 사건 행(bn-parent)은 굵은 제목 + ▸ 버튼 + 건수. 하위 행(bn-sub)은 사건 칸을 들여쓰고 왼쪽에 안내선을 긋는다.
+// 접힌 하위 행(bn-collapsed)은 숨긴다.
+:root {
+  --bn-sub-indent: 2.2em;
+  --bn-sub-guide: var(--lightgray);
+}
+.bn-toggle {
+  all: unset;
+  cursor: pointer;
+  display: inline-block;
+  width: 1.3em;
+  margin-right: 0.25em;
+  color: var(--gray);
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  border-radius: 4px;
+  &:hover {
+    color: var(--secondary);
+    background: var(--bn-hover);
+  }
+}
+.bn-count {
+  margin-left: 0.4em;
+  font-size: 0.8em;
+  color: var(--gray);
+  white-space: nowrap;
+}
+tr.bn-parent > td a {
+  font-weight: 700;
+}
+tr.bn-collapsed {
+  display: none !important;
+}
+@mixin bn-sub-cell {
+  position: relative;
+  padding-left: var(--bn-sub-indent);
+  // 왼쪽 안내선 (표의 세로선처럼 옅게)
+  &::before {
+    content: "";
+    position: absolute;
+    left: 0.9em;
+    top: 0;
+    bottom: 0;
+    border-left: 2px solid var(--bn-sub-guide);
+  }
+  // 안내선에서 사건 이름으로 꺾이는 짧은 가로선
+  &::after {
+    content: "";
+    position: absolute;
+    left: 0.9em;
+    top: 50%;
+    width: 0.7em;
+    border-top: 2px solid var(--bn-sub-guide);
   }
 }
 body[data-slug$="일차"] article table,
@@ -1003,41 +1053,34 @@ body[data-slug="index"] article table,
 body[data-slug="01-일지/사건-목록"] article table,
 .bn-case-table:not(.bn-has-day) table {
   & tr.bn-sub > td:nth-child(2) {
-    padding-left: 1.6em;
+    @include bn-sub-cell;
   }
 }
 .bn-case-table.bn-has-day table tr.bn-sub > td:nth-child(3) {
-  padding-left: 1.6em;
+  @include bn-sub-cell;
 }
-tr.bn-collapsed {
-  display: none !important;
+tr.bn-sub > td {
+  color: var(--darkgray);
+  font-size: 0.95em;
 }
-.bn-toggle {
-  all: unset;
-  cursor: pointer;
-  display: inline-block;
-  width: 1.2em;
-  margin-right: 0.2em;
-  color: var(--gray);
-  font-weight: 700;
-  line-height: 1;
-  text-align: center;
-  &:hover {
-    color: var(--secondary);
-  }
-}
-tr.bn-parent > td:nth-child(2) a {
-  font-weight: 700;
+tr.bn-sub > td:nth-child(2) a,
+.bn-case-table.bn-has-day table tr.bn-sub > td:nth-child(3) a {
+  font-weight: 500;
 }
 @media all and (max-width: 800px) {
   body[data-slug$="일차"] article table,
   body[data-slug="index"] article table,
   body[data-slug="01-일지/사건-목록"] article table {
     & tr.bn-sub {
-      margin-left: 1.2rem;
+      margin-left: 1.4rem;
+      border-left: 2px solid var(--bn-sub-guide);
     }
     & tr.bn-sub > td:nth-child(2) {
       padding-left: 0;
+      &::before,
+      &::after {
+        display: none;
+      }
     }
   }
 }
