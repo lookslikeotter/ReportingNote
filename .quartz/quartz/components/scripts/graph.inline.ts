@@ -22,15 +22,13 @@ import { D3Config } from "../Graph"
 import {
   ContentData,
   HOVER_EXTRA_WIDTH,
-  categoryColor,
+  ME,
+  caseNodeLinks,
   eventLinkColor,
   eventLinkWidth,
-  caseNodeLinks,
-  tableEventPairs,
   factionColors,
   factionIndex,
   isInfoNode,
-  personColor,
   isPersonNode,
   linkResolver,
   loadContentIndex,
@@ -38,14 +36,15 @@ import {
   nodeLabel,
   normalizeName,
   pairKey,
+  personColor,
   showLinkPopup,
-  ME,
+  tableEventPairs,
 } from "./bongnudo"
 
 // 봉누도2 — Quartz v4.5.2 graph.inline.ts 수정본 (오른쪽 아래 그래프와 전체 그래프).
 // 원본은 볼트의 .quartz/quartz/components/scripts/graph.inline.ts. 빌드 때 Quartz의 같은 파일을 덮어쓴다.
 // 인물 그래프와 함께 쓰는 규칙은 bongnudo.ts. 원래 Quartz 그래프와 다른 점:
-//   - 노드는 인물·세력·장소만. 색은 분류 태그, 지금 페이지는 테두리
+//   - 노드는 인물·세력·장소만. 인물 색은 소속 세력의 색(없으면 분류 태그 색), 세력은 검정. 지금 페이지는 테두리
 //   - 이름표는 처음부터 보이고, 확대·축소해도 화면에서 글자 크기가 그대로다
 //   - 선은 세 가지뿐: 소속 점선(인물 ↔ 소속 세력), 세력 관계 선(관계 태그), 사건 인연 선(일지 표 📰·🔥 행
 //     관련 인물 칸에 함께 적힌 노드끼리 — 인물·세력 모두). 한 쌍에는 선을 하나만 긋는다
@@ -53,14 +52,17 @@ import {
 //   - 거리는 언제나 사건 인연이 정한다. 관계 종류는 색·굵기만 정한다 (적대라고 멀어지지 않는다)
 //     본문 링크는 어떤 노드를 보여 줄지(이웃 계산)에만 쓰고 선으로 그리지 않는다
 //   - 선에 마우스를 올리면 하이라이트, 누르면 창 (사건 표 · 소속 · 세력 관계)
-//   - 배치를 미리 계산한 뒤, 노드가 다 들어오도록 배율·위치를 맞춰서 시작한다 (FIT_MAX_* 까지만 확대)
+//   - 배치를 미리 계산해 노드가 다 들어오도록 배율·위치를 맞춘 뒤(FIT_MAX_* 까지만 확대),
+//     노드를 처음 위치로 되돌려 흔들리며 자리 잡는 모습은 그대로 보여 준다
 //   - 왼쪽 위 '명총희 숨기기' 버튼: 명총희는 거의 모든 인물과 이어진 허브라, 빼면 인물끼리의 관계가 드러난다.
 //     상태는 브라우저에 남고(bn-hide-me), 명총희 본인 페이지에서는 숨기지 않는다
 
+// 처음 배율: 노드 둘레 여백(그래프 좌표)과 확대 상한 (사이드바 · 전체 그래프)
 const FIT_PAD = 40
 const FIT_MAX_LOCAL = 2.5
 const FIT_MAX_GLOBAL = 2
 
+// 명총희 숨기기 상태 (브라우저 localStorage)
 const HIDE_ME_KEY = "bn-hide-me"
 function hideMe(): boolean {
   try {
@@ -203,7 +205,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   const eventLinks = await tableEventPairs(fullSlug, data, resolveLink, isInfoNode)
   for (const l of eventLinks.values()) links.push({ source: l.source, target: l.target })
 
-  // 사건·이벤트 노트 ↔ 그 사건의 당사자. 이웃 계산에만 쓴다 (사건 노트는 노드가 아니라 선도 생기지 않는다).
+  // 사건 노트 ↔ 그 사건의 당사자. 이웃 계산에만 쓴다 (사건 노트는 노드가 아니라 선도 생기지 않는다).
   // 이게 없으면 사건 페이지 그래프에 관련 인물이 빠진다 (frontmatter 링크는 사이트 데이터에 없다)
   for (const l of await caseNodeLinks(fullSlug, data, resolveLink)) links.push(l)
 
@@ -683,7 +685,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     renderPixiFromD3()
   }
 
-  // 어떤 선이든 양 끝이 함께 엮인 사건·이벤트 표 (일지 표 관련 인물 칸 기준).
+  // 어떤 선이든 양 끝이 함께 엮인 사건 표 (일지 표 관련 인물 칸 기준).
   // 소속 선은 조직이 주체인 사건도 넣는다: 일지 표에 조직만 적혀 있어도,
   // 그 사건 노트의 `가담인물`에 이 조직원이 있으면 가담한 것이다.
   function openLinkPopup(ld: LinkData) {

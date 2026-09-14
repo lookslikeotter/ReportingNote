@@ -9,6 +9,7 @@ import type { ComponentChildren } from "preact"
 // Quartz는 frontmatter를 화면에 보여 주지 않으므로, 노트 type별로 고른 속성을 2열 표로 보여 준다.
 // 값이 비면 그 행은 뺀다. [[링크]]는 파일명·별칭으로 노트를 찾아 링크로 만든다 (못 찾으면 글자 그대로).
 // 등급·관계·상태 같은 값은 배지(bn-badge, data-v 값으로 색을 정함 — custom.scss).
+// 큰 사건·하위 사건도 type 사건이다 (하위 사건은 `상위`가 있어 '큰 사건' 행이 붙는다).
 
 type Kind = "text" | "links" | "badge" | "day" | "bool"
 type Field = { key: string; label: string; kind: Kind }
@@ -46,15 +47,6 @@ const FIELDS: Record<string, Field[]> = {
     { key: "분류", label: "분류", kind: "badge" },
     { key: "aliases", label: "다른 이름", kind: "text" },
     { key: "합격인원", label: "합격 인원", kind: "text" },
-  ],
-  이벤트: [
-    { key: "상태", label: "상태", kind: "badge" },
-    { key: "주최", label: "주최", kind: "links" },
-    { key: "일정", label: "일정", kind: "links" },
-    { key: "첫단서", label: "첫 단서", kind: "day" },
-    { key: "최근단서", label: "최근 단서", kind: "day" },
-    { key: "관련인물", label: "관련 인물", kind: "links" },
-    { key: "관련세력", label: "관련 세력", kind: "links" },
   ],
   외부자료: [
     { key: "종류", label: "종류", kind: "badge" },

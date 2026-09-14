@@ -15,6 +15,7 @@ const config: QuartzConfig = {
     analytics: null,
     locale: "ko-KR",
     baseUrl: "lookslikeotter.github.io/ReportingNote",
+    // private/는 저장소에는 있지만 사이트에는 내지 않는다 (등급 체크 보드 등). 나머지는 배포 워크플로가 이미 빼지만 로컬 빌드를 위해 둔다
     ignorePatterns: ["private", "99 템플릿", ".obsidian", "CLAUDE.md"],
     defaultDateType: "modified",
     // Notion 스타일 (getdesign.md의 Notion DESIGN.md 참고). 글꼴은 Pretendard(Inter+한글)를
@@ -56,9 +57,7 @@ const config: QuartzConfig = {
   plugins: {
     transformers: [
       Plugin.FrontMatter(),
-      Plugin.CreatedModifiedDate({
-        priority: ["frontmatter", "filesystem"],
-      }),
+      // CreatedModifiedDate는 넣지 않는다: 폴더·태그 목록 페이지에 실제 수정 날짜가 나가는 걸 막는다 (일차만 쓴다)
       Plugin.SyntaxHighlighting({
         theme: {
           light: "github-light",

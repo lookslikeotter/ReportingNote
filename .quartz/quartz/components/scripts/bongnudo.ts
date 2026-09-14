@@ -8,13 +8,16 @@ import {
   simplifySlug,
 } from "../../util/path"
 
-// 봉누도2 — 그래프 스크립트 두 개가 함께 쓰는 규칙과 도구.
+// 봉누도2 — 그래프·표 스크립트가 함께 쓰는 규칙과 도구. 원본은 볼트의 .quartz/quartz/components/scripts/bongnudo.ts.
 //   graph.inline.ts: 오른쪽 아래 그래프와 전체 그래프 / peopleGraph.inline.ts: 인물 그래프
-// 원본은 볼트의 .quartz/quartz/components/scripts/bongnudo.ts.
+//   entityEvents.inline.ts: 인물·세력 페이지의 사건 기록 표 / linkChips.inline.ts: 링크 앞 소속 표시
+// 차례: 사이트 데이터 → 노드(색·종류) → 이름·링크 → 사건 인연 선 → 선 위 마우스 → 일지 표 읽기 → 선 창·사건 기록 표
 
 export type ContentData = Map<SimpleSlug, ContentDetails>
 
-// 사이트 데이터(contentIndex). 자동 갱신(liveUpdate.inline.ts)이 새 데이터를 window.bnContentIndex에 넣으면 그걸 쓴다
+// ── 사이트 데이터 ──
+
+// contentIndex. 자동 갱신(liveUpdate.inline.ts)이 새 데이터를 window.bnContentIndex에 넣으면 그걸 쓴다
 export function loadContentIndex(): Promise<Record<string, ContentDetails>> {
   return (window as any).bnContentIndex ?? fetchData
 }
@@ -29,9 +32,90 @@ export async function loadContentData(): Promise<ContentData> {
   )
 }
 
-// 인물·세력 링크 앞에 소속 색 표시를 붙인다 — 인물은 동그라미, 세력은 네모 (모양은 custom.scss).
-// 색은 그 세력의 색 (bn-days.json의 factions: 분류별 기본값 또는 세력 노트의 `색` 속성).
-// 소속이 없는 인물은 분류 태그 색을 쓴다.
+// 일지 데이터: 빌드 때 plugins/emitters/bnDays.ts가 만든 static/bn-days.json
+//   days     = 일차 → 일지 주소·머리줄·행 HTML
+//   cases    = 사건 주소 → 가담인물 (조직이 주체라 일지 표 '관련 인물' 칸에 이름이 없는 사람들)
+//   factions = 세력 주소 → 색
+// 한 번 받아 페이지를 여는 동안 다시 쓰고, 자동 갱신으로 새 기록이 오면 버린다. 실패는 기억하지 않는다 (다음에 다시 시도)
+type DayData = {
+  days: Record<string, { slug: SimpleSlug; thead: string; rows: string[] }>
+  cases: Record<string, SimpleSlug[]>
+  factions: Record<string, string>
+}
+let daysCache: Promise<DayData | null> | null = null
+function fetchDays(currentSlug: FullSlug): Promise<DayData | null> {
+  if (!daysCache) {
+    const url = new URL(
+      joinSegments(pathToRoot(currentSlug), "static/bn-days.json"),
+      window.location.toString(),
+    )
+    // 배포 직후 앞단 캐시(CDN)가 옛 파일을 주지 않게, 페이지에 적힌 기록 버전을 주소에 붙인다 (liveUpdate.inline.ts와 같은 방식)
+    const build = document.querySelector<HTMLMetaElement>('meta[name="bn-build"]')?.content
+    if (build) url.searchParams.set("bnv", build.slice(0, 12))
+    daysCache = fetch(url, { cache: "no-cache" })
+      .then((r) => (r.ok ? (r.json() as Promise<DayData>) : Promise.reject()))
+      .catch(() => {
+        daysCache = null
+        return null
+      })
+  }
+  return daysCache
+}
+document.addEventListener("bn-content-updated", () => (daysCache = null))
+
+// ── 노드 ──
+
+// 그래프에 남기는 정보 노드: 인물·세력·장소 (목록 문서는 뺀다)
+const INFO_PREFIXES = ["02-인물/", "03-세력/", "04-장소/"]
+const INFO_EXCLUDE = ["02-인물/인물-목록", "03-세력/세력-목록"]
+
+export function isInfoNode(id: string): boolean {
+  return INFO_PREFIXES.some((p) => id.startsWith(p)) && !INFO_EXCLUDE.includes(id)
+}
+
+export function isPersonNode(id: string): boolean {
+  return isInfoNode(id) && id.startsWith("02-인물/")
+}
+
+// 명총희 본인 노트 (일지 표 '입수 경로'로 명총희와 전해 준 사람을 잇는다. 그래프의 '명총희 숨기기'도 이 노드)
+export const ME = "02-인물/000-명총희" as SimpleSlug
+
+// 노드 이름표: 인물 이름 앞 번호(001 등)는 떼고, 이름 모르는 인물의 전각 ？는 반각 ?로 (bnNames.ts displayName과 같은 규칙)
+export function nodeLabel(title: string): string {
+  return title.replace(/^\d{3}\s+/, "").replace(/^？/, "?")
+}
+
+// 분류 태그별 색 (앞에 있는 태그가 우선). 해당 태그가 없으면 fallback(기본 글자색)
+const CATEGORY_COLORS: [string, string][] = [
+  ["갱", "#e03131"],
+  ["기관", "#0075de"],
+  ["시민", "#1aae39"],
+]
+
+function categoryColor(tags: string[], fallback: string): string {
+  return CATEGORY_COLORS.find(([tag]) => tags.includes(tag))?.[1] ?? fallback
+}
+
+// 세력 색 (bn-days.json factions: 분류별 기본값 또는 세력 노트의 `색` 속성)
+export async function factionColors(currentSlug: FullSlug): Promise<Record<string, string>> {
+  return (await fetchDays(currentSlug))?.factions ?? {}
+}
+
+// 인물 색 = 소속 세력의 색. 소속이 없으면 분류 태그 색, 그것도 없으면 fallback
+export function personColor(
+  tags: string[],
+  colors: Record<string, string>,
+  factions: Map<string, SimpleSlug>,
+  fallback: string,
+): string {
+  const org = tags
+    .map(normalizeName)
+    .map((t) => factions.get(t))
+    .find((s) => s)
+  return (org ? colors[org] : undefined) ?? categoryColor(tags, fallback)
+}
+
+// 인물·세력 링크 앞에 소속 색 표시를 붙인다 — 인물은 동그라미, 세력은 네모 (모양은 custom.scss a.internal.bn-chip)
 export async function decorateLinks(
   root: ParentNode,
   data: ContentData,
@@ -56,58 +140,6 @@ export async function decorateLinks(
   }
 }
 
-// ── 노드 ──
-
-// 분류 태그별 노드 색 (앞에 있는 태그가 우선). 해당 태그가 없으면 fallback(기본 글자색)
-const CATEGORY_COLORS: [string, string][] = [
-  ["갱", "#e03131"],
-  ["기관", "#0075de"],
-  ["시민", "#1aae39"],
-]
-
-export function categoryColor(tags: string[], fallback: string): string {
-  return CATEGORY_COLORS.find(([tag]) => tags.includes(tag))?.[1] ?? fallback
-}
-
-// 세력 색 (bn-days.json factions: 분류별 기본값 또는 세력 노트의 `색` 속성)
-export async function factionColors(currentSlug: FullSlug): Promise<Record<string, string>> {
-  return (await fetchDays(currentSlug))?.factions ?? {}
-}
-
-// 인물 색 = 소속 세력의 색. 소속이 없으면 분류 태그 색, 그것도 없으면 fallback
-export function personColor(
-  tags: string[],
-  colors: Record<string, string>,
-  factions: Map<string, SimpleSlug>,
-  fallback: string,
-): string {
-  const org = tags
-    .map(normalizeName)
-    .map((t) => factions.get(t))
-    .find((s) => s)
-  return (org ? colors[org] : undefined) ?? categoryColor(tags, fallback)
-}
-
-// 그래프에 남기는 정보 노드: 인물·세력·장소 (목록 문서는 뺀다)
-const INFO_PREFIXES = ["02-인물/", "03-세력/", "04-장소/"]
-const INFO_EXCLUDE = ["02-인물/인물-목록", "03-세력/세력-목록"]
-
-export function isInfoNode(id: string): boolean {
-  return INFO_PREFIXES.some((p) => id.startsWith(p)) && !INFO_EXCLUDE.includes(id)
-}
-
-export function isPersonNode(id: string): boolean {
-  return isInfoNode(id) && id.startsWith("02-인물/")
-}
-
-// 명총희 본인 노트 (일지 표 '입수 경로'로 명총희와 전해 준 사람을 잇는다)
-export const ME = "02-인물/000-명총희" as SimpleSlug
-
-// 노드 이름표: 인물 이름 앞 번호(001 등)는 뗀다
-export function nodeLabel(title: string): string {
-  return title.replace(/^\d{3}\s+/, "").replace(/^？/, "?")
-}
-
 // ── 이름·링크 ──
 
 // 두 노드 쌍의 순서 없는 키
@@ -129,8 +161,8 @@ export function factionIndex(data: ContentData): Map<string, SimpleSlug> {
 }
 
 // 별칭·짧은 이름 링크를 실제 노트 주소로 되돌리는 함수를 만든다.
-// Quartz는 파일명과 같은 별칭(aliases)이 있으면 [[표민수]] 같은 짧은 링크를 별칭 주소('표민수')로 풀어서,
-// 실제 노트('02-인물/테스트/표민수')와 다른 노드가 된다. 이름(앞 번호 제외)이 같은 노트가 하나뿐이면 그 노트로 본다.
+// Quartz는 파일명과 같은 별칭(aliases)이 있으면 [[김철수]] 같은 짧은 링크를 별칭 주소('김철수')로 풀어서,
+// 실제 노트('02-인물/001-김철수')와 다른 노드가 된다. 이름(앞 번호 제외)이 같은 노트가 하나뿐이면 그 노트로 본다.
 export function linkResolver(data: ContentData): (dest: SimpleSlug) => SimpleSlug {
   const baseName = (id: string) => (id.split("/").pop() ?? "").replace(/^\d+-/, "")
   const index = new Map<string, SimpleSlug | null>()
@@ -157,7 +189,7 @@ export type EventPair = {
 }
 
 // 일지 표(N일차) 📰 사건·🔥 특종 행의 '관련 인물' 칸에 함께 적힌 당사자(isParticipant) 두 명마다 한 쌍을 만든다. 키는 pairKey.
-// 선을 눌렀을 때 뜨는 표와 같은 칸을 기준으로 삼는다. ☕ 일상·📅 이벤트 행은 선을 만들지 않는다.
+// 선을 눌렀을 때 뜨는 표와 같은 칸을 기준으로 삼는다. ☕ 일상·📅 이벤트 행과 큰 사건 행은 선을 만들지 않는다.
 // '입수 경로' 칸이 인물 링크뿐이면(명총희가 그 사람에게서 직접 들음) 명총희와 그 인물도 잇는다.
 // 기사·SNS 등 매체로 알게 된 일은 잇지 않는다.
 export async function tableEventPairs(
@@ -173,7 +205,6 @@ export async function tableEventPairs(
     // 큰 사건 행의 관련 인물 칸은 하위 사건의 합집합이라, 선은 하위 행에서만 만든다
     if (r.hasSubs || (r.kind !== "news" && r.kind !== "scoop") || seen.has(r.id)) continue
     seen.add(r.id)
-    const eventId = r.id
     // 이 사건으로 이어지는 두 사람: 관련 인물끼리 + 명총희와 직접 전해 준 사람 (같은 쌍은 한 번만)
     const rowPairs = new Map<string, [SimpleSlug, SimpleSlug]>()
     const involved = [...r.related].filter(isParticipant)
@@ -192,9 +223,9 @@ export async function tableEventPairs(
       const pair = pairs.get(key)
       if (pair) {
         pair.weight += w
-        pair.events.push(eventId)
+        pair.events.push(r.id)
       } else {
-        pairs.set(key, { source: a, target: b, weight: w, events: [eventId] })
+        pairs.set(key, { source: a, target: b, weight: w, events: [r.id] })
       }
     }
   }
@@ -274,116 +305,16 @@ export function nearestLink<L extends { simulationData: { source: Point; target:
   return best
 }
 
-// ── 선을 누르면 뜨는 창 ──
-
-// 창을 띄운다. Esc나 창 바깥을 누르면 닫힌다.
-// 창 안의 링크를 누르면 창을 닫고, 이동은 사이트의 링크 처리에 맡긴다.
-function showEdgePopup(title: string, subtitle: string, content: HTMLElement) {
-  document.querySelector(".bn-edge-popup")?.remove()
-  const outer = document.createElement("div")
-  outer.className = "bn-edge-popup"
-  const card = document.createElement("div")
-  card.className = "bn-edge-card"
-  const head = document.createElement("div")
-  head.className = "bn-edge-title"
-  head.textContent = title
-  const sub = document.createElement("div")
-  sub.className = "bn-edge-subtitle"
-  sub.textContent = subtitle
-  card.append(head, sub, content)
-  outer.append(card)
-  document.body.append(outer)
-
-  function onKey(e: KeyboardEvent) {
-    if (e.key === "Escape") close()
-  }
-  function close() {
-    outer.remove()
-    document.removeEventListener("keydown", onKey)
-  }
-  card.addEventListener("click", (e) => {
-    if ((e.target as Element).closest("a")) close()
-  })
-  outer.addEventListener("click", (e) => {
-    if (e.target === outer) close()
-  })
-  document.addEventListener("keydown", onKey)
-}
-
-// 사건 노트 본문 '개요' 첫 줄 = 한 줄 요약
-function eventSummary(details: ContentDetails | undefined): string {
-  const m = (details?.content ?? "").match(/개요\s*\n+\s*([^\n]+)/)
-  return (m?.[1] ?? "").trim()
-}
-
-// 일지 데이터: 빌드 때 plugins/emitters/bnDays.ts가 만든 static/bn-days.json
-//   days  = 일차 → 일지 주소·머리줄·행 HTML
-//   cases = 사건 주소 → 가담인물 (조직이 주체라 일지 표 '관련 인물' 칸에 이름이 없는 사람들)
-// 한 번 받아 페이지를 여는 동안 다시 쓰고, 자동 갱신으로 새 기록이 오면 버린다. 실패는 기억하지 않는다 (다음에 다시 시도)
-type DayData = {
-  days: Record<string, { slug: SimpleSlug; thead: string; rows: string[] }>
-  cases: Record<string, SimpleSlug[]>
-  factions: Record<string, string>
-}
-let daysCache: Promise<DayData | null> | null = null
-function fetchDays(currentSlug: FullSlug): Promise<DayData | null> {
-  if (!daysCache) {
-    const url = new URL(
-      joinSegments(pathToRoot(currentSlug), "static/bn-days.json"),
-      window.location.toString(),
-    )
-    // 배포 직후 앞단 캐시(CDN)가 옛 파일을 주지 않게, 페이지에 적힌 기록 버전을 주소에 붙인다 (liveUpdate.inline.ts와 같은 방식)
-    const build = document.querySelector<HTMLMetaElement>('meta[name="bn-build"]')?.content
-    if (build) url.searchParams.set("bnv", build.slice(0, 12))
-    daysCache = fetch(url, { cache: "no-cache" })
-      .then((r) => (r.ok ? (r.json() as Promise<DayData>) : Promise.reject()))
-      .catch(() => {
-        daysCache = null
-        return null
-      })
-  }
-  return daysCache
-}
-document.addEventListener("bn-content-updated", () => (daysCache = null))
-
-// 일지 표 머리줄 (일지 페이지를 못 읽었을 때만 쓴다)
-function defaultHead(): HTMLElement {
-  const thead = document.createElement("thead")
-  const tr = document.createElement("tr")
-  for (const h of ["시간", "사건", "요약", "장소", "관련 인물", "입수 경로"]) {
-    const th = document.createElement("th")
-    th.textContent = h
-    tr.append(th)
-  }
-  thead.append(tr)
-  return thead
-}
-
-// 일지 표에서 행을 못 찾은 사건: 사건 노트에서 아는 정보(취재가치·제목·요약)로 같은 칸 구성의 행을 만든다
-function fallbackRow(details: ContentDetails | undefined, href: string): HTMLElement {
-  const tr = document.createElement("tr")
-  const cells = Array.from({ length: 6 }, () => document.createElement("td"))
-  // 시간 칸에 등급 이름표 (행 배경색). 시간은 알 수 없어 비워 둔다
-  const grade = document.createElement("span")
-  grade.className = (details?.tags ?? []).includes("특종") ? "bn-lv-scoop" : "bn-lv-news"
-  cells[0].append(grade)
-  const a = document.createElement("a")
-  a.href = href
-  a.textContent = (details?.title ?? "").replace(/^\d+일차-\d+\s+/, "")
-  cells[1].append(a)
-  cells[2].textContent = eventSummary(details)
-  tr.append(...cells)
-  return tr
-}
+// ── 일지 표 읽기 ──
 
 // 일지 표(N일차)의 행 하나
 export type DayRow = {
   // 행이 실린 일지(01-일지/N일차)와 그 일차 숫자
   day: SimpleSlug
   dayN: number
-  // 행의 사건·이벤트 노트
+  // 행의 사건 노트
   id: SimpleSlug
-  // 행의 등급 이름표(bn-lv-*): 없음 daily(☕) · news(📰) · scoop(🔥) · event(📅)
+  // 행의 등급 이름표(bn-lv-*): 없음 daily(☕) · news(📰) · scoop(🔥) · event(📅, 이벤트 큰 사건)
   kind: "daily" | "news" | "scoop" | "event"
   // '관련 인물' 칸의 인물·세력
   related: Set<SimpleSlug>
@@ -474,10 +405,91 @@ async function readDayTables(
   return { thead, rows, joined: dayData?.cases ?? {} }
 }
 
-// 선을 눌렀을 때: 양 끝이 함께 엮인 📰 사건·🔥 특종·📅 이벤트를 일지와 같은 모양의 표로 보여 준다 (일지 순서).
-//   - 일지 표 '관련 인물' 칸에 양 끝이 모두 들어간 행. 세력은 조직 단위로 얽힌 사건(관련세력)에만 이 칸에 적는다
+// 고른 행 목록에, 하위 사건 행의 큰 사건 행을 그 하위들 바로 앞에 끼워 넣는다 (일지 순서 유지).
+// 큰 사건 행은 문맥용이다 — 선·건수 계산에는 넣지 않는다.
+function withParents(all: DayRow[], hits: DayRow[]): DayRow[] {
+  const hitSet = new Set(hits)
+  const parents = new Set(hits.map((r) => r.parent).filter((p): p is SimpleSlug => !!p))
+  return all.filter((r) => hitSet.has(r) || (r.hasSubs && parents.has(r.id) && !hitSet.has(r)))
+}
+
+// 일지 표 머리줄 (일지 페이지를 못 읽었을 때만 쓴다)
+function defaultHead(): HTMLElement {
+  const thead = document.createElement("thead")
+  const tr = document.createElement("tr")
+  for (const h of ["시간", "사건", "요약", "장소", "관련 인물", "입수 경로"]) {
+    const th = document.createElement("th")
+    th.textContent = h
+    tr.append(th)
+  }
+  thead.append(tr)
+  return thead
+}
+
+// 사건 노트 본문 '개요' 첫 줄 = 한 줄 요약
+function eventSummary(details: ContentDetails | undefined): string {
+  const m = (details?.content ?? "").match(/개요\s*\n+\s*([^\n]+)/)
+  return (m?.[1] ?? "").trim()
+}
+
+// 일지 표에서 행을 못 찾은 사건: 사건 노트에서 아는 정보(취재가치·제목·요약)로 같은 칸 구성의 행을 만든다
+function fallbackRow(details: ContentDetails | undefined, href: string): HTMLElement {
+  const tr = document.createElement("tr")
+  const cells = Array.from({ length: 6 }, () => document.createElement("td"))
+  // 시간 칸에 등급 이름표 (행 배경색). 시간은 알 수 없어 비워 둔다
+  const grade = document.createElement("span")
+  grade.className = (details?.tags ?? []).includes("특종") ? "bn-lv-scoop" : "bn-lv-news"
+  cells[0].append(grade)
+  const a = document.createElement("a")
+  a.href = href
+  a.textContent = (details?.title ?? "").replace(/^\d+일차-\d+(?:-\d+)?\s+/, "")
+  cells[1].append(a)
+  cells[2].textContent = eventSummary(details)
+  tr.append(...cells)
+  return tr
+}
+
+// ── 선을 누르면 뜨는 창 ──
+
+// 창을 띄운다. Esc나 창 바깥을 누르면 닫힌다.
+// 창 안의 링크를 누르면 창을 닫고, 이동은 사이트의 링크 처리에 맡긴다.
+function showEdgePopup(title: string, subtitle: string, content: HTMLElement) {
+  document.querySelector(".bn-edge-popup")?.remove()
+  const outer = document.createElement("div")
+  outer.className = "bn-edge-popup"
+  const card = document.createElement("div")
+  card.className = "bn-edge-card"
+  const head = document.createElement("div")
+  head.className = "bn-edge-title"
+  head.textContent = title
+  const sub = document.createElement("div")
+  sub.className = "bn-edge-subtitle"
+  sub.textContent = subtitle
+  card.append(head, sub, content)
+  outer.append(card)
+  document.body.append(outer)
+
+  function onKey(e: KeyboardEvent) {
+    if (e.key === "Escape") close()
+  }
+  function close() {
+    outer.remove()
+    document.removeEventListener("keydown", onKey)
+  }
+  card.addEventListener("click", (e) => {
+    if ((e.target as Element).closest("a")) close()
+  })
+  outer.addEventListener("click", (e) => {
+    if (e.target === outer) close()
+  })
+  document.addEventListener("keydown", onKey)
+}
+
+// 선을 눌렀을 때: 양 끝이 함께 엮인 📰 사건·🔥 특종을 일지와 같은 모양의 표로 보여 준다 (일지 순서).
+//   - 일지 표 '관련 인물' 칸에 양 끝이 모두 들어간 하위·단독 행. 세력은 조직 단위로 얽힌 사건(관련세력)에만 이 칸에 적는다
 //   - knownEvents: 그래프 선을 만든 사건들 (관련 인물 칸에 빠져 있어도 넣는다)
-// ☕ 일상은 넣지 않는다. 📅 이벤트는 그래프에 노드·선을 만들지 않지만 이 창에는 나온다.
+//   - 하위 행의 큰 사건 행은 문맥으로 함께 보여 주되 건수에는 넣지 않는다
+// ☕ 일상은 넣지 않는다.
 export async function showLinkPopup(p: {
   title: string
   // 선 종류 (예: "소속", "세력 관계 · 경쟁")
@@ -506,8 +518,11 @@ export async function showLinkPopup(p: {
 
   const tbody = document.createElement("tbody")
   for (const r of withParents(rows, [...picked.values()])) tbody.append(r.row)
+  // 선은 만들었지만 일지 표에서 행을 못 찾은 사건 (보통 없다)
+  let missing = 0
   for (const id of known) {
     if (picked.has(id)) continue
+    missing++
     const href = new URL(resolveRelative(p.currentSlug, id), window.location.toString())
     tbody.append(fallbackRow(p.data.get(id), href.toString()))
   }
@@ -524,16 +539,14 @@ export async function showLinkPopup(p: {
   } else {
     content = document.createElement("div")
     content.className = "bn-edge-empty"
-    content.textContent = "함께 엮인 📰·🔥 사건이나 📅 이벤트가 아직 없다."
+    content.textContent = "함께 엮인 📰·🔥 사건이 아직 없다."
   }
 
-  const eventCount = [...picked.values()].filter((r) => r.kind === "event").length
-  const caseCount = picked.size - eventCount + (known.size > 0 ? [...known].filter((id) => !picked.has(id)).length : 0)
-  const count = `함께 엮인 사건 ${caseCount}건` + (eventCount > 0 ? ` · 이벤트 ${eventCount}건` : "")
+  const count = `함께 엮인 사건 ${picked.size + missing}건`
   showEdgePopup(p.title, p.kind ? `${p.kind} · ${count}` : count, content)
 }
 
-// 사건·이벤트 노트 ↔ 그 사건에 나온 인물·세력 (일지 표 '관련 인물' 칸 + 사건의 `가담인물`).
+// 사건 노트 ↔ 그 사건에 나온 인물·세력 (일지 표 '관련 인물' 칸 + 사건의 `가담인물`).
 // 그래프의 이웃 계산에만 쓴다 — 사건 노트는 노드가 아니므로 선으로 그려지지 않는다.
 // frontmatter의 링크는 사이트 데이터에 들어가지 않아서, 이게 없으면 사건 페이지 그래프에 당사자가 빠진다.
 export async function caseNodeLinks(
@@ -560,7 +573,7 @@ export async function caseNodeLinks(
 
 // 이 인물·세력이 일지 표 '관련 인물' 칸에 있는 행 (명총희는 '입수 경로' 칸이 인물 링크뿐인 행도: 직접 전해 들은 일)
 // + 그 사건의 `가담인물`에 이 인물이 있는 행 (조직이 주체라 '관련 인물' 칸에 이름이 없는 경우).
-// ☕ 일상도 넣는다. 일지 순서 그대로 (일차 → 행 순).
+// ☕ 일상도 넣는다. 하위 행의 큰 사건 행은 문맥으로 끼워 넣는다. 일지 순서 그대로 (일차 → 행 순).
 export async function entityDayRows(
   currentSlug: FullSlug,
   data: ContentData,
@@ -576,12 +589,4 @@ export async function entityDayRows(
         (id === ME && r.sources.length > 0)),
   )
   return { thead, rows: withParents(rows, hits) }
-}
-
-// 고른 행 목록에, 하위 사건 행의 큰 사건 행을 그 하위들 바로 앞에 끼워 넣는다 (일지 순서 유지).
-// 큰 사건 행은 문맥용이다 — 선·건수 계산에는 넣지 않는다.
-export function withParents(all: DayRow[], hits: DayRow[]): DayRow[] {
-  const hitSet = new Set(hits)
-  const parents = new Set(hits.map((r) => r.parent).filter((p): p is SimpleSlug => !!p))
-  return all.filter((r) => hitSet.has(r) || (r.hasSubs && parents.has(r.id) && !hitSet.has(r)))
 }

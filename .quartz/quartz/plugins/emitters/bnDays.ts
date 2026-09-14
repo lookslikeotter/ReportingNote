@@ -72,7 +72,7 @@ export const BnDays: QuartzEmitterPlugin = () => ({
 
       // 세력 색
       if (slug.startsWith("03-세력/") && slug !== "03-세력/세력-목록") {
-        const fm = file.data.frontmatter ?? {}
+        const fm: Record<string, unknown> = file.data.frontmatter ?? {}
         const custom = typeof fm["색"] === "string" ? fm["색"].trim() : ""
         factions[slug] = COLOR_OK.test(custom)
           ? custom

@@ -103,7 +103,7 @@ async function softReload(build: string) {
   ;(window as any).bnContentIndex = fresh
   // 원래 주소의 캐시도 새것으로 (다음에 이 페이지를 그냥 열 때를 위해)
   void primeCache([location.href.split("#")[0]])
-  document.dispatchEvent(new CustomEvent("bn-content-updated"))
+  document.dispatchEvent(new CustomEvent("bn-content-updated", { detail: {} }))
   const y = window.scrollY
   // 사이트가 다른 페이지로 이동하는 중이면 spaNavigate가 아무것도 하지 않고 끝난다 → nav가 안 오면 실패로 보고 다시 시도
   let navigated = false

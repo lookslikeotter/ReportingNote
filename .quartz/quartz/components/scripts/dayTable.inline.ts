@@ -115,7 +115,7 @@ function markAll(root: ParentNode) {
   for (const t of root.querySelectorAll<HTMLTableElement>(".bn-case-table table")) markTable(t, false)
 }
 
-document.addEventListener("nav", () => markAll(document))
+document.addEventListener("nav", () => markAll(document.body))
 // 그래프 선 창·사건 기록 표가 만들어진 뒤 (bongnudo.ts·entityEvents.inline.ts가 띄운다)
 document.addEventListener("bn-table-ready", (e) => {
   const el = (e as CustomEvent<HTMLElement>).detail

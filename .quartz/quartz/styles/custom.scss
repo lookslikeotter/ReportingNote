@@ -1,6 +1,43 @@
 @use "./base.scss";
 
-// 봉누도2: 페이지 여백 줄이기 (기본: 가운데 정렬 + 위 6rem, 옆 2rem)
+// 봉누도2 — 사이트 스타일. 원본은 볼트의 .quartz/quartz/styles/custom.scss (빌드 때 Quartz에 복사).
+// Notion 스타일(getdesign.md의 Notion DESIGN.md 참고)을 바탕으로 한다. 차례:
+//   색 변수 → 페이지 여백 → 글·표·검색 → 탐색기 → 오른쪽 그래프 → 등급 색 띠 → 본문 위(새로고침·색 안내·이동)
+//   → 선 창·사건 기록 표 → 일지 표 칸 → 링크 칩·속성 카드·배지 → 큰 사건 펼치기 → 좁은 화면
+
+// ── 색 변수 ──
+:root {
+  // 옅은 면 색 (표 머리줄·검색창·인라인 코드 배경)
+  --bn-surface: #f6f5f4;
+  // 탐색기 배경, 마우스 올린 항목
+  --bn-sidebar: #fbfbfa;
+  --bn-hover: rgba(55, 53, 47, 0.08);
+  // 표 왼쪽 등급 띠: 회청·주황·보라 — 인물 분류 색(기관 파랑·시민 초록·갱 빨강)과 겹치지 않게 고른 옅은 색
+  --bn-news-bar: #9db0cc;
+  --bn-scoop-bar: #f0a020;
+  --bn-event-bar: #8b5cf6;
+  // 📰 배지 글자색은 띠보다 진하게 (옅은 색은 글자로 읽기 어렵다)
+  --bn-news-ink: #5b6b8a;
+  // 큰 사건 행(그룹 머리)과 펼친 하위 표의 배경, 하위 표 들여쓰기
+  --bn-group-bg: rgba(120, 130, 150, 0.09);
+  --bn-group-bg-open: rgba(120, 130, 150, 0.14);
+  --bn-sub-indent: 2.2rem;
+  // 📅 이벤트 큰 사건 행은 보라 계열
+  --bn-event-bg: rgba(139, 92, 246, 0.09);
+  --bn-event-bg-open: rgba(139, 92, 246, 0.15);
+}
+:root[saved-theme="dark"] {
+  --bn-surface: #202020;
+  --bn-sidebar: #202020;
+  --bn-hover: rgba(255, 255, 255, 0.06);
+  --bn-news-ink: #8a9bbb;
+  --bn-group-bg: rgba(160, 170, 190, 0.1);
+  --bn-group-bg-open: rgba(160, 170, 190, 0.16);
+  --bn-event-bg: rgba(167, 139, 250, 0.12);
+  --bn-event-bg-open: rgba(167, 139, 250, 0.2);
+}
+
+// ── 페이지 여백 (기본: 가운데 정렬 + 위 6rem, 옆 2rem) ──
 .page {
   max-width: none;
   margin: 0;
@@ -34,14 +71,24 @@
   }
 }
 
-// ── 봉누도2: Notion 스타일 (getdesign.md의 Notion DESIGN.md 참고) ──
-// 옅은 면 색 (표 머리줄·검색창·인라인 코드 배경)
-:root {
-  --bn-surface: #f6f5f4;
+// 왼쪽 280px · 본문 · 오른쪽 360px. 1600px부터는 양쪽을 더 넓게 (그 사이에서는 본문 표가 눌리지 않게)
+@media all and (min-width: 1200px) {
+  .page > #quartz-body {
+    grid-template-columns: 280px auto 360px;
+  }
+
+  .page > #quartz-body .sidebar.right {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
 }
-:root[saved-theme="dark"] {
-  --bn-surface: #202020;
+@media all and (min-width: 1600px) {
+  .page > #quartz-body {
+    grid-template-columns: 320px auto 420px;
+  }
 }
+
+// ── 글·표·검색 ──
 
 // 본문: 16px, 줄 간격 1.55
 article {
@@ -70,9 +117,31 @@ article h1 {
 }
 article h2 {
   letter-spacing: -0.3px;
+  // 본문 섹션 제목(개요·경과·…)을 구분선으로 나눠 훑기 쉽게
+  margin-top: 2rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--lightgray);
 }
 
-// 표: 1px 테두리, 8px 둥근 모서리, 옅은 머리줄, 얇은 행 구분선 (그래프 선 창의 사건 표도 같은 모양)
+// 인물 노트 첫 줄 "> 한 줄 요약"은 인용 대신 리드 문단처럼 (콜아웃은 제외)
+body[data-slug^="02-인물/"] article > blockquote:first-child:not(.callout) {
+  border-left: none;
+  padding-left: 0;
+  margin: 0.8rem 0 1.2rem;
+  font-size: 1.08rem;
+  color: var(--gray);
+}
+
+// 끌어온 블록(![[…]])의 "원본 링크"는 작게 오른쪽으로
+article .transclude > a.transclude-src {
+  display: block;
+  text-align: right;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+// 표: 1px 테두리, 8px 둥근 모서리, 옅은 머리줄, 얇은 행 구분선 (그래프 선 창·사건 기록 표도 같은 모양).
+// 글자는 15px (일지 표는 정보 밀도가 높다)
 article table,
 .bn-case-table table {
   border-collapse: separate;
@@ -80,7 +149,7 @@ article table,
   border: 1px solid var(--lightgray);
   border-radius: 8px;
   overflow: hidden;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.5;
 }
 article tr,
@@ -119,6 +188,11 @@ a.internal.tag-link {
   border-radius: 6px;
 }
 
+// 폴더·태그 목록 페이지: 항목 옆 날짜를 숨긴다 (하위 폴더 항목에는 Quartz가 빌드 시각을 넣어서 실제 날짜가 보인다)
+.page-listing .section > .meta {
+  display: none;
+}
+
 // 인라인 코드: Notion처럼 옅은 면 + 붉은 글자
 p > code,
 li > code,
@@ -128,21 +202,7 @@ td > code {
   border-radius: 4px;
 }
 
-// 그래프 칸: 12px 모서리
-.graph > .graph-outer {
-  border-radius: 12px;
-}
-
-// ── 봉누도2: 탐색기 (Notion 사이드바 스타일) ──
-:root {
-  --bn-sidebar: #fbfbfa;
-  --bn-hover: rgba(55, 53, 47, 0.08);
-}
-:root[saved-theme="dark"] {
-  --bn-sidebar: #202020;
-  --bn-hover: rgba(255, 255, 255, 0.06);
-}
-
+// ── 탐색기 (Notion 사이드바 스타일) ──
 @media all and (min-width: 800px) {
   // 탐색기 칸 옅은 배경
   .page > #quartz-body .sidebar.left {
@@ -194,7 +254,7 @@ td > code {
     }
   }
 
-  // 하위 폴더(사건 목록·기관·사업체 등)는 조금 가볍게
+  // 하위 폴더(사건·기관·사업체·큰 사건 폴더 등)는 조금 가볍게
   & .folder-outer .folder-container div > button span {
     font-weight: 500;
   }
@@ -234,9 +294,13 @@ td > code {
   margin-top: 0.8rem;
 }
 
-// 봉누도2: 오른쪽 사이드바 그래프 2개 — 제목 숨김, 크게
+// ── 오른쪽 그래프 2개 (위: 인물 그래프 PeopleGraph.tsx · 아래: 기본 Graph) ──
 .graph > h3 {
   display: none;
+}
+
+.graph > .graph-outer {
+  border-radius: 12px;
 }
 
 // 그림 영역이 테두리를 꽉 채워야 캔버스 크기가 따라 커진다 (스크립트가 영역 크기로 캔버스를 만든다)
@@ -245,9 +309,45 @@ td > code {
   height: 100%;
 }
 
+// 좁은 화면(1200px 미만)에서는 320px씩
 .page > #quartz-body .sidebar.right .graph > .graph-outer {
   height: 320px;
   margin: 0;
+}
+
+// 넓은 화면: 위(인물) 40% · 아래 60%. 인물이 셋 미만이면 위를 접고 아래가 나머지를 쓴다
+@media all and (min-width: 1200px) {
+  .page > #quartz-body .sidebar.right .people-graph > .graph-outer {
+    height: calc((100vh - 5rem) * 0.4);
+  }
+  .page > #quartz-body .sidebar.right .people-graph + .graph > .graph-outer {
+    height: calc((100vh - 5rem) * 0.6);
+  }
+  .page > #quartz-body .sidebar.right .people-graph.bn-few > .graph-outer {
+    height: 88px;
+  }
+  .page > #quartz-body .sidebar.right .people-graph.bn-few + .graph > .graph-outer {
+    height: calc(100vh - 5rem - 88px - 1rem);
+  }
+}
+
+// 인물이 셋 미만일 때의 안내 글 (peopleGraph.inline.ts가 .bn-few를 켠다)
+.people-graph .bn-graph-note {
+  display: none;
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  bottom: 0.6rem;
+  margin: 0;
+  font-size: 13px;
+  color: var(--gray);
+  pointer-events: none;
+}
+.people-graph.bn-few .bn-graph-note {
+  display: block;
+}
+.people-graph.bn-few .people-graph-container canvas {
+  opacity: 0.35;
 }
 
 // 인물 그래프 크게 보기 버튼·창 (기본 그래프의 전체 그래프 버튼·창과 같은 모양, 이름만 people-)
@@ -270,39 +370,6 @@ td > code {
 
   &:hover {
     background-color: var(--lightgray);
-  }
-}
-
-// ── 명총희 숨기기 버튼 (아래 그래프·전체 그래프 왼쪽 위, graph.inline.ts가 만든다) ──
-.graph .graph-container,
-.graph .global-graph-container {
-  position: relative;
-}
-.graph .bn-me-toggle {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 2;
-  margin: 0.35rem;
-  padding: 0.15rem 0.55rem;
-  border: 1px solid var(--lightgray);
-  border-radius: 999px;
-  background: var(--light);
-  color: var(--darkgray);
-  font-family: var(--bodyFont);
-  font-size: 0.72rem;
-  line-height: 1.4;
-  cursor: pointer;
-  opacity: 0.85;
-  transition: background-color 0.2s ease, opacity 0.2s ease;
-
-  &:hover {
-    opacity: 1;
-    background: var(--lightgray);
-  }
-  &[aria-pressed="true"] {
-    color: var(--secondary);
-    border-color: var(--secondary);
   }
 }
 
@@ -361,53 +428,60 @@ td > code {
   }
 }
 
-@media all and (min-width: 1200px) {
-  .page > #quartz-body {
-    grid-template-columns: 280px auto 360px;
-  }
+// 명총희 숨기기 버튼 (아래 그래프·전체 그래프 왼쪽 위, graph.inline.ts가 만든다)
+.graph .graph-container,
+.graph .global-graph-container {
+  position: relative;
+}
+.graph .bn-me-toggle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  margin: 0.35rem;
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--lightgray);
+  border-radius: 999px;
+  background: var(--light);
+  color: var(--darkgray);
+  font-family: var(--bodyFont);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  cursor: pointer;
+  opacity: 0.85;
+  transition:
+    background-color 0.2s ease,
+    opacity 0.2s ease;
 
-  .page > #quartz-body .sidebar.right {
-    padding-left: 1rem;
-    padding-right: 1rem;
+  &:hover {
+    opacity: 1;
+    background: var(--lightgray);
   }
-
-  // 두 그래프가 화면 높이를 반씩 나눠 쓴다
-  .page > #quartz-body .sidebar.right .graph > .graph-outer {
-    height: calc((100vh - 5rem) / 2);
+  &[aria-pressed="true"] {
+    color: var(--secondary);
+    border-color: var(--secondary);
   }
 }
 
-// 봉누도2: 취재가치별 표 행 표시 (Obsidian에서는 .obsidian/snippets/bongnudo-rows.css가 같은 규칙)
-
-// 행 맨 왼쪽 끝에 등급 색 띠. 회청·주황·보라 — 인물 분류 색(기관 파랑·시민 초록·갱 빨강)과 겹치지 않게 고른 색
-:root {
-  // 표 왼쪽 띠는 옅게 (이벤트 보라·특종 주황과 붙어 있어도 서로 구분되게)
-  --bn-news-bar: #9db0cc;
-  --bn-scoop-bar: #f0a020;
-  --bn-event-bar: #8b5cf6;
-  // 📰 배지 글자색은 띠보다 진하게 (옅은 색은 글자로 읽기 어렵다)
-  --bn-news-ink: #5b6b8a;
-}
-:root[saved-theme="dark"] {
-  --bn-news-ink: #8a9bbb;
-}
-
-// 📰 사건 — 파랑
+// ── 취재가치별 표 행 표시: 행 맨 왼쪽 끝의 등급 색 띠 (시간 칸의 bn-lv-* 이름표) ──
+// 📰 사건 — 회청
 tr:has(.bn-lv-news) > td:first-child {
   box-shadow: inset 5px 0 0 var(--bn-news-bar);
 }
 
-// 🔥 특종 — 빨강
+// 🔥 특종 — 주황
 tr:has(.bn-lv-scoop) > td:first-child {
   box-shadow: inset 5px 0 0 var(--bn-scoop-bar);
 }
 
-// 📅 이벤트 — 노랑
+// 📅 이벤트 — 보라
 tr:has(.bn-lv-event) > td:first-child {
   box-shadow: inset 5px 0 0 var(--bn-event-bar);
 }
 
-// 봉누도2: 새로고침 버튼 (RefreshButton.tsx) — 경로 표시(Home > …) 왼쪽에 한 줄로.
+// ── 본문 위: 새로고침 버튼 · 경로 표시 · 제목 · 색 안내 · 일차 이동 ──
+
+// 새로고침 버튼(RefreshButton.tsx)은 경로 표시(Home > …) 왼쪽에 한 줄로.
 // 본문 위 영역을 줄바꿈 flex로 만들고, 버튼·경로 표시만 한 줄에 두고 나머지(제목·태그)는 각자 한 줄
 .page-header > .popover-hint:has(> .bn-refresh) {
   display: flex;
@@ -475,13 +549,7 @@ tr:has(.bn-lv-event) > td:first-child {
   }
 }
 
-// 링크 미리보기 창에는 보이지 않게
-.popover .bn-refresh,
-.popover .bn-legend {
-  display: none;
-}
-
-// 봉누도2: 일지·사건 목록 제목 바로 오른쪽 색 안내 (DayLegend.tsx). 제목은 글자 너비만,
+// 일지·사건 목록 제목 바로 오른쪽 색 안내 (DayLegend.tsx). 제목은 글자 너비만,
 // 제목과 안내는 글자 기준선을 맞춘다. 좁으면 안내가 아래 줄로
 .page-header > .popover-hint:has(> .bn-legend) > .article-title {
   flex: 0 1 auto;
@@ -534,7 +602,66 @@ tr:has(.bn-lv-event) > td:first-child {
   }
 }
 
-// 봉누도2: 그래프 선을 누르면 뜨는 창 (함께 엮인 사건 목록 등)
+// 일차·사건 이동 (DayNav.tsx)
+.bn-daynav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.8rem 0 0;
+  font-size: 14px;
+
+  & .bn-pill {
+    display: inline-block;
+    padding: 0.2rem 0.75rem;
+    border: 1px solid var(--lightgray);
+    border-radius: 999px;
+    color: var(--darkgray);
+    background-color: var(--light);
+    max-width: 18em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &:hover {
+      background-color: var(--bn-hover);
+    }
+    &.current {
+      font-weight: 600;
+      color: var(--secondary);
+    }
+    &.disabled {
+      color: var(--gray);
+      opacity: 0.6;
+    }
+  }
+  & .bn-dayselect {
+    padding: 0.2rem 0.6rem;
+    border: 1px solid var(--lightgray);
+    border-radius: 999px;
+    background-color: var(--bn-surface);
+    color: var(--dark);
+    font-family: var(--bodyFont);
+    font-size: 14px;
+    cursor: pointer;
+  }
+}
+
+// 링크 미리보기 창: 속성 카드만 작게, 버튼·안내·이동·사건 기록은 숨김
+.popover .bn-infobox {
+  font-size: 12px;
+  padding: 0.5rem 0.7rem;
+  margin-top: 0.5rem;
+}
+.popover .bn-refresh,
+.popover .bn-legend,
+.popover .bn-daynav,
+.popover .bn-graph-toggle,
+.popover .bn-entity-events {
+  display: none;
+}
+
+// ── 그래프 선을 누르면 뜨는 창 (bongnudo.ts showLinkPopup) ──
 .bn-edge-popup {
   position: fixed;
   inset: 0;
@@ -600,14 +727,7 @@ tr:has(.bn-lv-event) > td:first-child {
   padding: 0.5rem 0;
 }
 
-// 넓은 화면(1600px~)에서만 양쪽 칸을 넓게. 1200~1600px에서는 위(280px · 360px)로 두어 본문 표가 눌리지 않게 한다
-@media all and (min-width: 1600px) {
-  .page > #quartz-body {
-    grid-template-columns: 320px auto 420px;
-  }
-}
-
-// 봉누도2: 인물·세력 페이지 아래 '사건 기록' 표 (EntityEvents.tsx). 표 모양은 그래프 선 창의 사건 표(.bn-case-table)와 같다
+// 인물·세력 페이지 아래 '사건 기록' 표 (EntityEvents.tsx). 표 모양은 선 창의 사건 표(.bn-case-table)와 같다
 .bn-entity-events {
   margin-top: 2.5rem;
 
@@ -626,39 +746,7 @@ tr:has(.bn-lv-event) > td:first-child {
   }
 }
 
-// ── 봉누도2: 읽기 편의 (2차) ──
-
-// 본문 섹션 제목(개요·경과·…)을 구분선으로 나눠 훑기 쉽게
-article h2 {
-  margin-top: 2rem;
-  padding-bottom: 0.25rem;
-  border-bottom: 1px solid var(--lightgray);
-}
-
-// 인물 노트 첫 줄 "> 한 줄 요약"은 인용 대신 리드 문단처럼 (콜아웃은 제외)
-body[data-slug^="02-인물/"] article > blockquote:first-child:not(.callout) {
-  border-left: none;
-  padding-left: 0;
-  margin: 0.8rem 0 1.2rem;
-  font-size: 1.08rem;
-  color: var(--gray);
-}
-
-// 끌어온 블록(![[…]])의 "원본 링크"는 작게 오른쪽으로
-article .transclude > a.transclude-src {
-  display: block;
-  text-align: right;
-  font-size: 12px;
-  opacity: 0.7;
-}
-
-// 표 글자를 조금 키운다 (일지 표는 정보 밀도가 높다)
-article table,
-.bn-case-table table {
-  font-size: 15px;
-}
-
-// ── 일지 표 (일지·첫 화면·사건 목록 페이지의 표, 그래프 선 창, 사건 기록 표) ──
+// ── 일지 표 칸 (일지·첫 화면·사건 목록 페이지의 표, 선 창, 사건 기록 표) ──
 // 칸: 시간 | 사건 | 요약 | 장소 | 관련 인물 | 입수 경로.
 // 사건 기록 표(인물·세력 페이지)만 앞에 '일차' 칸이 하나 더 있다 (.bn-has-day).
 // 칸마다 최소 너비를 보장해서 어느 표에서든 같은 크기로 보이게 하고, 내용이 길면 그 칸 안에서 줄을 바꾼다.
@@ -736,7 +824,7 @@ body[data-slug="01-일지/사건-목록"] article table,
   }
 }
 
-// ── 인물·세력 링크 앞 소속 표시 (LinkChips / bongnudo.ts decorateLinks) ──
+// ── 인물·세력 링크 앞 소속 표시 (LinkChips.tsx / bongnudo.ts decorateLinks) ──
 // 인물은 동그라미, 세력은 네모. 색(--bn-chip)은 스크립트가 그 세력의 색으로 채운다
 // (분류별 기본값: 기관 파랑 · 갱 빨강 · 사업체 노랑 · 그 밖 초록. 세력 노트의 `색` 속성으로 따로 정할 수 있다)
 a.internal.bn-chip {
@@ -830,13 +918,11 @@ a.internal.bn-chip {
     --b: #c77800;
   }
   &[data-v="적대"],
-  &[data-v="무산"],
   &[data-v="폐기"],
   &[data-v="갱"] {
     --b: #e03131;
   }
-  &[data-v="미궁"],
-  &[data-v="예고"] {
+  &[data-v="미궁"] {
     --b: #8b5cf6;
   }
   &[data-v="기관"] {
@@ -851,102 +937,133 @@ a.internal.bn-chip {
     background-color: transparent;
   }
 }
-// ── 일차 이동 (DayNav.tsx) ──
-.bn-daynav {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 0.8rem 0 0;
-  font-size: 14px;
 
-  & .bn-pill {
-    display: inline-block;
-    padding: 0.2rem 0.75rem;
-    border: 1px solid var(--lightgray);
-    border-radius: 999px;
-    color: var(--darkgray);
-    background-color: var(--light);
-    max-width: 18em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+// ── 일지 표의 큰 사건/하위 사건 (DayTable.tsx · dayTable.inline.ts) ──
+// 큰 사건 행(bn-parent): 옅은 색 띠의 그룹 머리. 시간 칸 앞에 ▸ 버튼, 사건 칸 뒤에 건수 배지.
+// 하위 행: 큰 사건 행 아래 한 칸짜리 행(bn-subwrap) 안의 작은 표(bn-subtable)로 옮겨져, 안쪽으로 들여쓴 카드처럼 보인다.
+// 📅 이벤트 큰 사건은 배경도 보라 계열.
 
-    &:hover {
-      background-color: var(--bn-hover);
-    }
-    &.current {
-      font-weight: 600;
-      color: var(--secondary);
-    }
-    &.disabled {
-      color: var(--gray);
-      opacity: 0.6;
-    }
-  }
-  & .bn-dayselect {
-    padding: 0.2rem 0.6rem;
-    border: 1px solid var(--lightgray);
-    border-radius: 999px;
-    background-color: var(--bn-surface);
-    color: var(--dark);
-    font-family: var(--bodyFont);
-    font-size: 14px;
-    cursor: pointer;
-  }
+// 큰 사건 행
+tr.bn-parent > td {
+  background-color: var(--bn-group-bg);
+  font-weight: 600;
+}
+tr.bn-parent.bn-open > td {
+  background-color: var(--bn-group-bg-open);
+  border-bottom-color: transparent;
+}
+tr.bn-parent > td a {
+  font-weight: 700;
+}
+tbody tr.bn-parent:hover > td {
+  background-color: var(--bn-group-bg-open) !important;
+}
+tr.bn-parent.bn-clickable {
+  cursor: pointer;
 }
 
-// 링크 미리보기 창에서는 카드만 작게, 이동·버튼은 숨김
-.popover .bn-infobox {
-  font-size: 12px;
-  padding: 0.5rem 0.7rem;
-  margin-top: 0.5rem;
+// 하위 표를 담는 행 (마우스를 올려도 색이 바뀌지 않는다)
+tr.bn-subwrap > td {
+  padding: 0 0.8rem 0.9rem var(--bn-sub-indent);
+  background-color: var(--bn-group-bg-open);
+  box-shadow: none !important;
 }
-.popover .bn-daynav,
-.popover .bn-graph-toggle,
-.popover .bn-entity-events {
-  display: none;
+tr.bn-subwrap.bn-collapsed {
+  display: none !important;
+}
+tbody tr.bn-subwrap:hover > td {
+  background-color: var(--bn-group-bg-open) !important;
 }
 
-// ── 오른쪽 그래프: 위(인물) 40% · 아래 60%. 인물이 적으면 위를 접는다 ──
-@media all and (min-width: 1200px) {
-  .page > #quartz-body .sidebar.right .people-graph > .graph-outer {
-    height: calc((100vh - 5rem) * 0.4);
-  }
-  .page > #quartz-body .sidebar.right .people-graph + .graph > .graph-outer {
-    height: calc((100vh - 5rem) * 0.6);
-  }
-  .page > #quartz-body .sidebar.right .people-graph.bn-few > .graph-outer {
-    height: 88px;
-  }
-  .page > #quartz-body .sidebar.right .people-graph.bn-few + .graph > .graph-outer {
-    height: calc(100vh - 5rem - 88px - 1rem);
-  }
+// 안쪽 작은 표: 자체 테두리·둥근 모서리, 조금 작은 글자
+.bn-subtable {
+  overflow-x: auto;
 }
-.people-graph .bn-graph-note {
-  display: none;
-  position: absolute;
-  left: 1rem;
-  right: 1rem;
-  bottom: 0.6rem;
+.bn-subtable > table {
+  width: 100%;
   margin: 0;
-  font-size: 13px;
-  color: var(--gray);
-  pointer-events: none;
-}
-.people-graph.bn-few .bn-graph-note {
-  display: block;
-}
-.people-graph.bn-few .people-graph-container canvas {
-  opacity: 0.35;
+  border: 1px solid var(--lightgray);
+  border-radius: 8px;
+  background-color: var(--light);
+  font-size: 0.93em;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  & th {
+    font-size: 0.85em;
+    padding: 5px 12px;
+  }
+  & tr.bn-sub > td {
+    background-color: var(--light);
+  }
+  & tbody tr.bn-sub:hover > td {
+    background-color: var(--bn-hover);
+  }
 }
 
-// ── 좁은 화면 ──
+// 안쪽 작은 표의 칸 규칙 (바깥 표와 같은 칸 구성)
+body[data-slug$="일차"] article .bn-subtable > table,
+body[data-slug="index"] article .bn-subtable > table,
+body[data-slug="01-일지/사건-목록"] article .bn-subtable > table,
+.bn-case-table:not(.bn-has-day) .bn-subtable > table {
+  @include bn-day-cols(0);
+}
+.bn-case-table.bn-has-day .bn-subtable > table {
+  @include bn-day-cols(1);
+  & td:nth-child(1) {
+    min-width: 4em;
+    white-space: nowrap;
+  }
+}
+
+// 건수: 제목 뒤에 옅은 글자
+.bn-count {
+  margin-left: 0.5em;
+  color: var(--gray);
+  font-size: 0.85em;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+// 펼치기 화살표: 테두리 없는 작은 꺾쇠. 시간 칸 맨 앞에 두고, 펼치면 아래를 향하게 돌아간다
+.bn-toggle {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1em;
+  height: 1.1em;
+  margin-right: 0.45em;
+  vertical-align: -0.1em;
+  color: var(--gray);
+  & svg {
+    transition: transform 0.15s ease;
+  }
+  &[aria-expanded="true"] svg {
+    transform: rotate(90deg);
+  }
+}
+tr.bn-parent:hover .bn-toggle,
+tr.bn-parent.bn-open .bn-toggle {
+  color: var(--secondary);
+}
+
+// 📅 이벤트 큰 사건: 행 배경도 보라 계열로 채운다
+tr.bn-parent:has(.bn-lv-event) > td {
+  background-color: var(--bn-event-bg);
+}
+tr.bn-parent.bn-open:has(.bn-lv-event) > td,
+tbody tr.bn-parent:has(.bn-lv-event):hover > td,
+tr.bn-parent:has(.bn-lv-event) + tr.bn-subwrap > td,
+tbody tr.bn-parent:has(.bn-lv-event) + tr.bn-subwrap:hover > td {
+  background-color: var(--bn-event-bg-open) !important;
+}
+
+// ── 좁은 화면 (800px 미만) ──
 .bn-graph-toggle {
   display: none;
 }
 @media all and (max-width: 800px) {
-  // 그래프 두 개는 버튼으로 펼칠 때만
+  // 그래프 두 개는 버튼(GraphToggle.tsx)으로 펼칠 때만
   .bn-graph-toggle {
     display: inline-block;
     margin: 0.6rem 0 0;
@@ -964,6 +1081,10 @@ a.internal.bn-chip {
   }
   body.bn-show-graphs .page > #quartz-body .sidebar.right .graph {
     display: block;
+  }
+
+  .bn-infobox {
+    font-size: 13px;
   }
 
   // 일지 표는 행 하나 = 카드 하나
@@ -1030,127 +1151,14 @@ a.internal.bn-chip {
     & tr:has(.bn-lv-event) {
       border-left: 4px solid var(--bn-event-bar);
     }
-  }
-  .bn-infobox {
-    font-size: 13px;
-  }
-}
 
-// 봉누도2: 일지 표의 큰 사건/하위 사건 (DayTable.tsx · dayTable.inline.ts)
-// 큰 사건 행(bn-parent): 옅은 색 띠의 그룹 머리. 사건 칸 앞에 ▸ 칩 버튼, 뒤에 건수 배지.
-// 하위 행: 큰 사건 행 아래 한 칸짜리 행(bn-subwrap) 안의 작은 표(bn-subtable)로 옮겨져, 안쪽으로 들여쓴 카드처럼 보인다.
-:root {
-  --bn-group-bg: rgba(120, 130, 150, 0.09);
-  --bn-group-bg-open: rgba(120, 130, 150, 0.14);
-  --bn-sub-indent: 2.2rem;
-}
-:root[saved-theme="dark"] {
-  --bn-group-bg: rgba(160, 170, 190, 0.1);
-  --bn-group-bg-open: rgba(160, 170, 190, 0.16);
-}
-// 큰 사건 행
-tr.bn-parent > td {
-  background-color: var(--bn-group-bg);
-  font-weight: 600;
-}
-tr.bn-parent.bn-open > td {
-  background-color: var(--bn-group-bg-open);
-  border-bottom-color: transparent;
-}
-tr.bn-parent > td a {
-  font-weight: 700;
-}
-tbody tr.bn-parent:hover > td {
-  background-color: var(--bn-group-bg-open) !important;
-}
-// 하위 표를 담는 행
-tr.bn-subwrap > td {
-  padding: 0 0.8rem 0.9rem var(--bn-sub-indent);
-  background-color: var(--bn-group-bg-open);
-  box-shadow: none !important;
-}
-tr.bn-subwrap.bn-collapsed {
-  display: none !important;
-}
-// 안쪽 작은 표: 자체 테두리·둥근 모서리, 조금 작은 글자
-.bn-subtable {
-  overflow-x: auto;
-}
-.bn-subtable > table {
-  width: 100%;
-  margin: 0;
-  border: 1px solid var(--lightgray);
-  border-radius: 8px;
-  background-color: var(--light);
-  font-size: 0.93em;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  & th {
-    font-size: 0.85em;
-    padding: 5px 12px;
-  }
-  & tr.bn-sub > td {
-    background-color: var(--light);
-  }
-  & tbody tr.bn-sub:hover > td {
-    background-color: var(--bn-hover);
-  }
-}
-// 건수: 제목 뒤에 옅은 글자
-.bn-count {
-  margin-left: 0.5em;
-  color: var(--gray);
-  font-size: 0.85em;
-  font-weight: 400;
-  white-space: nowrap;
-}
-// 펼치기 화살표: 테두리 없는 작은 꺾쇠. 시간 칸 맨 앞에 두고, 펼치면 아래를 향하게 돌아간다
-.bn-toggle {
-  all: unset;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.1em;
-  height: 1.1em;
-  margin-right: 0.45em;
-  vertical-align: -0.1em;
-  color: var(--gray);
-  & svg {
-    transition: transform 0.15s ease;
-  }
-  &[aria-expanded="true"] svg {
-    transform: rotate(90deg);
-  }
-}
-tr.bn-parent.bn-clickable {
-  cursor: pointer;
-}
-tr.bn-parent:hover .bn-toggle,
-tr.bn-parent.bn-open .bn-toggle {
-  color: var(--secondary);
-}
-// 안쪽 작은 표의 칸 규칙 (바깥 표와 같은 칸 구성)
-body[data-slug$="일차"] article .bn-subtable > table,
-body[data-slug="index"] article .bn-subtable > table,
-body[data-slug="01-일지/사건-목록"] article .bn-subtable > table,
-.bn-case-table:not(.bn-has-day) .bn-subtable > table {
-  @include bn-day-cols(0);
-}
-.bn-case-table.bn-has-day .bn-subtable > table {
-  @include bn-day-cols(1);
-  & td:nth-child(1) {
-    min-width: 4em;
-    white-space: nowrap;
-  }
-}
-@media all and (max-width: 800px) {
-  body[data-slug$="일차"] article table,
-  body[data-slug="index"] article table,
-  body[data-slug="01-일지/사건-목록"] article table {
+    // 큰 사건 카드와 그 아래 하위 표: 안쪽으로 밀고, 안의 표는 다시 카드 목록
     & tr.bn-parent {
       background-color: var(--bn-group-bg);
     }
-    // 하위 표를 담는 카드: 안쪽으로 밀고, 안의 표는 다시 카드 목록
+    & tr.bn-parent:has(.bn-lv-event) {
+      background-color: var(--bn-event-bg);
+    }
     & tr.bn-subwrap {
       padding: 0.3rem 0 0.3rem 1rem;
       border: none;
@@ -1171,38 +1179,6 @@ body[data-slug="01-일지/사건-목록"] article .bn-subtable > table,
       & tr {
         border-left-width: 3px;
       }
-    }
-  }
-}
-// 하위 표를 담는 행은 마우스를 올려도 색이 바뀌지 않는다
-tbody tr.bn-subwrap:hover > td {
-  background-color: var(--bn-group-bg-open) !important;
-}
-
-// 이벤트 태그가 붙은 큰 사건(📅 띠): 행 배경도 보라 계열로 채운다
-:root {
-  --bn-event-bg: rgba(139, 92, 246, 0.09);
-  --bn-event-bg-open: rgba(139, 92, 246, 0.15);
-}
-:root[saved-theme="dark"] {
-  --bn-event-bg: rgba(167, 139, 250, 0.12);
-  --bn-event-bg-open: rgba(167, 139, 250, 0.2);
-}
-tr.bn-parent:has(.bn-lv-event) > td {
-  background-color: var(--bn-event-bg);
-}
-tr.bn-parent.bn-open:has(.bn-lv-event) > td,
-tbody tr.bn-parent:has(.bn-lv-event):hover > td,
-tr.bn-parent:has(.bn-lv-event) + tr.bn-subwrap > td,
-tbody tr.bn-parent:has(.bn-lv-event) + tr.bn-subwrap:hover > td {
-  background-color: var(--bn-event-bg-open) !important;
-}
-@media all and (max-width: 800px) {
-  body[data-slug$="일차"] article table,
-  body[data-slug="index"] article table,
-  body[data-slug="01-일지/사건-목록"] article table {
-    & tr.bn-parent:has(.bn-lv-event) {
-      background-color: var(--bn-event-bg);
     }
   }
 }
