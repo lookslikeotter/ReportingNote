@@ -22,7 +22,7 @@ import GraphToggle from "./quartz/components/GraphToggle"
 // 왼쪽 위 사이트 제목(PageTitle)은 넣지 않는다.
 
 // 폴더는 기본으로 접고, ExplorerDefaults가 '01 일지'만 처음에 펼쳐 둔다.
-// 이름 앞 번호(01 일지, 001 이윤진)와 사건 문서의 일차(0일차-01 … → 01 …)는 화면에서만 떼고,
+// 이름 앞 번호(01 일지, 001 이윤진)와 사건 폴더·문서의 번호(0일차-01 …, 0일차-01-2 … → 제목만)는 화면에서만 떼고,
 // 정렬은 원래 이름대로 한 뒤에 뗀다 (sort → map 순서)
 const explorer = Component.Explorer({
   folderDefaultState: "collapsed",
@@ -30,7 +30,10 @@ const explorer = Component.Explorer({
   useSavedState: true,
   order: ["filter", "sort", "map"],
   mapFn: (node) => {
-    node.displayName = node.displayName.replace(/^\d+\s+/, "").replace(/^\d+일차-/, "")
+    // 사건 폴더·노트 "0일차-02 제목"·"0일차-02-1 제목" → "제목", 그 밖의 번호 접두어 "02 인물" → "인물"
+    node.displayName = node.displayName
+      .replace(/^\d+일차-\d+(?:-\d+)?\s+/, "")
+      .replace(/^\d+\s+/, "")
   },
 })
 

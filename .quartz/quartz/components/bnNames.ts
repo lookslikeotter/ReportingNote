@@ -10,8 +10,11 @@ export function displayName(name: string): string {
     .replace(/^\d{2}\s+(?=\S)/, "")
 }
 
-// 경로 조각(폴더 이름 "02 인물" 또는 slug "02-인물"): "인물". "0일차"는 그대로
+// 경로 조각(폴더 이름 "02 인물" 또는 slug "02-인물"): "인물". "0일차"는 그대로.
+// 사건 폴더 조각 "0일차-02-언론사-오리엔테이션" → "언론사 오리엔테이션"
 export function displayCrumb(segment: string): string {
+  const m = segment.match(/^\d+일차-\d+(?:-\d+)?-(.+)$/)
+  if (m) return m[1].replaceAll("-", " ")
   return segment.replace(/^\d{2}[-\s](?=\S)/, "").replaceAll("-", " ")
 }
 
