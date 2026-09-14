@@ -338,7 +338,7 @@ foreach ($c in $caseNotes) {
   }
   if ((Scalar $fm '기사화') -eq "true") {
     $linked = $false
-    foreach ($a in ($notes | Where-Object { $_.Folder -eq "05 취재·기사" -and (Scalar $_.Front 'type') -eq "기사" })) { if (LinksTo $a $c) { $linked = $true } }
+    foreach ($a in ($notes | Where-Object { $_.Folder -match '^05 취재·기사' -and (Scalar $_.Front 'type') -eq "기사" })) { if (LinksTo $a $c) { $linked = $true }}
     if (-not $linked) { Warn $c.Rel "기사화: true 인데 이 사건을 링크한 기사 노트가 없음" }
   }
   # 일지 표 행
@@ -469,6 +469,11 @@ foreach ($f in $factions) {
 $articleList = $byPath["05 취재·기사/기사 목록"]
 foreach ($a in ($notes | Where-Object { $_.Folder -match '^05 취재·기사' -and $_.Name -ne "기사 목록" })) {
   if ($articleList -and -not (LinksTo $articleList $a)) { Warn $articleList.Rel "'$($a.Name)' 링크 없음" }
+  # 폴더: 종류 SNS는 SNS/N일차/, 그 밖(기사·신문·방송·기타)은 기사/N일차/
+  $kind = Scalar $a.Front '종류'; $dayN = Scalar $a.Front '일차'
+  if ($dayN -notmatch '^\d+$') { Err $a.Rel "일차가 비었거나 숫자가 아님: '$dayN'"; continue }
+  $wantFolder = "05 취재·기사/" + $(if ($kind -eq "SNS") { "SNS" } else { "기사" }) + "/${dayN}일차"
+  if ($a.Folder -ne $wantFolder) { Err $a.Rel "폴더가 '$wantFolder'이어야 함 (종류 '$kind', ${dayN}일차)" }
 }
 
 # ── 결과 ──
