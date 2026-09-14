@@ -1,10 +1,10 @@
 // 봉누도2 — 일지 표의 큰 사건/하위 사건 행. 원본은 볼트의 .quartz/quartz/components/scripts/dayTable.inline.ts.
 // DayTable.tsx가 afterDOMLoaded로 싣는다.
 //   하위 사건 행: 사건 칸(2번째 칸, 사건 기록 표는 3번째)이 "↳"로 시작. 바로 위의 하위가 아닌 행이 큰 사건.
-//   큰 사건이 하나라도 있는 표에는 맨 왼쪽에 좁은 '앞 칸'(bn-lead)을 한 줄씩 더한다.
-//     큰 사건·단독 행: 앞 칸이 표의 일부(테두리·배경)이고, 큰 사건 행은 여기에 ▸ 버튼이 들어간다.
-//     하위 행: 앞 칸이 투명해서(custom.scss) 표가 한 칸 안쪽에서 시작하는 것처럼 보인다.
-//   일지 표(article 안)에서는 하위 행을 접었다 펴고, 그래프 선 창·사건 기록 표(.bn-case-table)에서는 접지 않는다.
+//   큰 사건 행(bn-parent)은 그룹 머리처럼 칠하고 ▸ 버튼을 단다.
+//   하위 행들은 큰 사건 행 바로 아래의 한 칸짜리 행(bn-subwrap) 안에 **작은 표(bn-subtable)**로 옮겨 넣는다.
+//   그 작은 표가 안쪽으로 들여쓰여 카드처럼 보인다 (custom.scss). 열 이름은 바깥 표의 머리줄을 복사한다.
+//   일지 표(article 안)에서는 접었다 펴고, 그래프 선 창·사건 기록 표(.bn-case-table)에서는 항상 펼쳐 둔다.
 //   나중에 만들어지는 표(그래프 선 창·사건 기록 표)도 같은 함수로 표시한다 (bn-table-ready 이벤트).
 
 const SUB_MARK = "↳"
@@ -18,10 +18,10 @@ function eventCell(tr: HTMLTableRowElement, hasDay: boolean): HTMLTableCellEleme
 }
 
 function markTable(table: HTMLTableElement, collapsible: boolean) {
-  if (table.dataset.bnMarked) return
+  if (table.dataset.bnMarked || table.classList.contains("bn-subtable-table")) return
   table.dataset.bnMarked = "1"
   const hasDay = !!table.closest(".bn-has-day")
-  const rows = [...table.querySelectorAll<HTMLTableRowElement>("tbody > tr")]
+  const rows = [...table.querySelectorAll<HTMLTableRowElement>(":scope > tbody > tr")]
   const groups: Group[] = []
   let current: Group | null = null
 
@@ -30,7 +30,7 @@ function markTable(table: HTMLTableElement, collapsible: boolean) {
     const text = (cell?.textContent ?? "").trimStart()
     if (cell && text.startsWith(SUB_MARK)) {
       tr.classList.add("bn-sub")
-      // "↳" 글자는 지우고 들여쓰기(앞 칸)로 대신한다
+      // "↳" 글자는 지운다 (들여쓰기는 작은 표가 대신한다)
       for (const node of [...cell.childNodes]) {
         if (node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").includes(SUB_MARK)) {
           node.textContent = (node.textContent ?? "").replace(SUB_MARK, "").replace(/^\s+/, "")
@@ -43,52 +43,60 @@ function markTable(table: HTMLTableElement, collapsible: boolean) {
       groups.push(current)
     }
   }
-  const withKids = groups.filter((g) => g.kids.length > 0)
-  if (withKids.length === 0) return
+  const colCount = Math.max(1, ...rows.map((r) => r.querySelectorAll("td").length))
+  const thead = table.querySelector(":scope > thead")
 
-  // 앞 칸 더하기 (머리줄 + 모든 행)
-  table.classList.add("bn-has-lead")
-  for (const htr of table.querySelectorAll<HTMLTableRowElement>("thead > tr")) {
-    const th = document.createElement("th")
-    th.className = "bn-lead"
-    htr.prepend(th)
-  }
-  for (const tr of rows) {
-    const td = document.createElement("td")
-    td.className = "bn-lead"
-    tr.prepend(td)
-  }
-
-  for (const g of withKids) {
+  for (const g of groups) {
+    if (g.kids.length === 0) continue
     g.parent.classList.add("bn-parent")
-    g.kids[g.kids.length - 1].classList.add("bn-last")
-    // 앞 칸을 더했으니 사건 칸은 한 칸 뒤
-    const evCell = g.parent.querySelectorAll("td")[(hasDay ? 2 : 1) + 1]
+
+    // 하위 행을 담을 작은 표
+    const wrap = document.createElement("tr")
+    wrap.className = "bn-subwrap"
+    const cell = document.createElement("td")
+    cell.colSpan = colCount
+    const box = document.createElement("div")
+    box.className = "bn-subtable"
+    const inner = document.createElement("table")
+    inner.className = "bn-subtable-table"
+    if (thead) inner.append(document.importNode(thead, true))
+    const tbody = document.createElement("tbody")
+    for (const k of g.kids) tbody.append(k)
+    inner.append(tbody)
+    box.append(inner)
+    cell.append(box)
+    wrap.append(cell)
+    g.parent.after(wrap)
+
+    // 건수 배지
+    const evCell = eventCell(g.parent, hasDay)
     const count = document.createElement("span")
     count.className = "bn-count"
     count.textContent = `${g.kids.length}건`
     evCell?.append(count)
-    if (!collapsible) continue
-    const lead = g.parent.querySelector<HTMLTableCellElement>("td.bn-lead")
-    if (!lead) continue
+
+    if (!collapsible) {
+      g.parent.classList.add("bn-open")
+      continue
+    }
+    wrap.classList.add("bn-collapsed")
     const btn = document.createElement("button")
     btn.type = "button"
     btn.className = "bn-toggle"
     btn.setAttribute("aria-expanded", "false")
     btn.title = `하위 사건 ${g.kids.length}건 펼치기`
     btn.textContent = "▸"
-    const kids = g.kids
-    for (const k of kids) k.classList.add("bn-collapsed")
     btn.addEventListener("click", (e) => {
       e.preventDefault()
       e.stopPropagation()
       const open = btn.getAttribute("aria-expanded") !== "true"
       btn.setAttribute("aria-expanded", open ? "true" : "false")
       btn.textContent = open ? "▾" : "▸"
-      btn.title = open ? "하위 사건 접기" : `하위 사건 ${kids.length}건 펼치기`
-      for (const k of kids) k.classList.toggle("bn-collapsed", !open)
+      btn.title = open ? "하위 사건 접기" : `하위 사건 ${g.kids.length}건 펼치기`
+      wrap.classList.toggle("bn-collapsed", !open)
+      g.parent.classList.toggle("bn-open", open)
     })
-    lead.append(btn)
+    evCell?.prepend(btn)
   }
 }
 
