@@ -1142,3 +1142,31 @@ body[data-slug="01-일지/사건-목록"] article .bn-subtable > table,
 tbody tr.bn-subwrap:hover > td {
   background-color: var(--bn-group-bg-open) !important;
 }
+
+// 이벤트 태그가 붙은 큰 사건(📅 띠): 행 배경도 보라 계열로 채운다
+:root {
+  --bn-event-bg: rgba(139, 92, 246, 0.09);
+  --bn-event-bg-open: rgba(139, 92, 246, 0.15);
+}
+:root[saved-theme="dark"] {
+  --bn-event-bg: rgba(167, 139, 250, 0.12);
+  --bn-event-bg-open: rgba(167, 139, 250, 0.2);
+}
+tr.bn-parent:has(.bn-lv-event) > td {
+  background-color: var(--bn-event-bg);
+}
+tr.bn-parent.bn-open:has(.bn-lv-event) > td,
+tbody tr.bn-parent:has(.bn-lv-event):hover > td,
+tr.bn-parent:has(.bn-lv-event) + tr.bn-subwrap > td,
+tbody tr.bn-parent:has(.bn-lv-event) + tr.bn-subwrap:hover > td {
+  background-color: var(--bn-event-bg-open) !important;
+}
+@media all and (max-width: 800px) {
+  body[data-slug$="일차"] article table,
+  body[data-slug="index"] article table,
+  body[data-slug="01-일지/사건-목록"] article table {
+    & tr.bn-parent:has(.bn-lv-event) {
+      background-color: var(--bn-event-bg);
+    }
+  }
+}
