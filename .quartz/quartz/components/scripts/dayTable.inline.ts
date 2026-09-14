@@ -85,18 +85,28 @@ function markTable(table: HTMLTableElement, collapsible: boolean) {
     btn.className = "bn-toggle"
     btn.setAttribute("aria-expanded", "false")
     btn.title = `하위 사건 ${g.kids.length}건 펼치기`
-    btn.textContent = "▸"
-    btn.addEventListener("click", (e) => {
-      e.preventDefault()
-      e.stopPropagation()
+    btn.innerHTML =
+      '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    const toggle = () => {
       const open = btn.getAttribute("aria-expanded") !== "true"
       btn.setAttribute("aria-expanded", open ? "true" : "false")
-      btn.textContent = open ? "▾" : "▸"
       btn.title = open ? "하위 사건 접기" : `하위 사건 ${g.kids.length}건 펼치기`
       wrap.classList.toggle("bn-collapsed", !open)
       g.parent.classList.toggle("bn-open", open)
+    }
+    btn.addEventListener("click", (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      toggle()
     })
-    evCell?.prepend(btn)
+    // 큰 사건 행 어디를 눌러도 펼쳐진다 (링크는 빼고)
+    g.parent.classList.add("bn-clickable")
+    g.parent.addEventListener("click", (e) => {
+      if ((e.target as Element).closest("a, button")) return
+      toggle()
+    })
+    // 맨 왼쪽 칸(시간 또는 일차) 앞에
+    g.parent.querySelector("td")?.prepend(btn)
   }
 }
 
