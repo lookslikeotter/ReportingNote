@@ -206,13 +206,11 @@ td > code {
 
 // 탐색기 맨 위 '최신 일지' 항목 (LatestDay.tsx): 최상위 폴더보다 조금 크게, 첫 화면에서는 옅은 배경
 .bn-latest {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0.8rem 0 0.4rem;
-  padding: 4px 8px;
+  display: block;
+  margin: 0.8rem 0 0;
+  padding: 3px 8px;
   border-radius: 6px;
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--dark);
   text-decoration: none;
@@ -220,17 +218,6 @@ td > code {
   &:hover,
   &.active {
     background-color: var(--bn-hover);
-  }
-
-  & .bn-latest-tag {
-    flex: none;
-    padding: 0 0.45em;
-    border: 1px solid currentColor;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 600;
-    line-height: 1.5;
-    color: var(--secondary);
   }
 }
 
