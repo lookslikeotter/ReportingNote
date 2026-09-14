@@ -9,6 +9,8 @@ import {
   forceLink,
   forceCollide,
   forceRadial,
+  forceX,
+  forceY,
   zoomIdentity,
   select,
   drag,
@@ -292,14 +294,19 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
 
   // we virtualize the simulation and use pixi to actually render it
   const simulation: Simulation<NodeData, LinkData> = forceSimulation<NodeData>(graphData.nodes)
-    .force("charge", forceManyBody().strength(-100 * repelForce))
+    // 밀어내기는 가까운 점끼리만: 범위가 없으면 소속으로 뭉친 무리끼리 덩어리째 밀어내 사건 인연이 많은 무리도 멀어진다
+    .force("charge", forceManyBody().strength(-100 * repelForce).distanceMax(300))
     .force("center", forceCenter().strength(centerForce))
-    // 사건 인연 선: 함께 엮인 사건이 많을수록 더 가깝게
+    // 선이 없는 점(☕ 사건만 있는 인물 등)이 바깥으로 밀려나 고리를 이루지 않게 가운데로 약하게 당긴다
+    .force("x", forceX().strength(0.05))
+    .force("y", forceY().strength(0.05))
+    // 사건 인연 선: 함께 엮인 사건이 많을수록 더 가깝고 더 세게.
+    // 세기를 정하지 않으면 d3 기본값(1 ÷ 양 끝 중 적은 선 수)이라 선이 많은 사람끼리의 선은 거의 당기지 못한다
     .force(
       "link",
-      forceLink(graphData.links.filter((l) => !l.member && !l.relation)).distance(
-        (l: LinkData) => linkDistance / (1 + 0.3 * ((l.weight ?? 1) - 1)),
-      ),
+      forceLink(graphData.links.filter((l) => !l.member && !l.relation))
+        .distance((l: LinkData) => linkDistance / (1 + 0.3 * ((l.weight ?? 1) - 1)))
+        .strength((l: LinkData) => Math.min(1, 0.2 + 0.1 * (l.weight ?? 1))),
     )
     // 세력 관계: 거리는 사건 인연과 같은 규칙 (관계 종류는 색·굵기만 정한다)
     .force(
