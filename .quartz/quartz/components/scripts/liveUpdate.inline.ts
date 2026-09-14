@@ -4,7 +4,7 @@
 // 자동 갱신: 사이트가 열려 있는 동안 POLL_MS마다 static/bn-version.json(배포 때 만들어짐)을 확인한다.
 //   - 기록(노트)만 바뀌었으면 제자리 갱신: 새 사이트 데이터(contentIndex)를 window.bnContentIndex에 넣고
 //     'bn-content-updated' 이벤트를 보낸 뒤, 지금 페이지를 스크롤 위치 그대로 다시 불러온다.
-//     그래프·탐색기·검색 수정본은 window.bnContentIndex가 있으면 그걸 쓴다.
+//     그래프·탐색기·검색 수정본은 window.bnContentIndex가 있으면 그걸 쓴다. 본문 그림도 새로 받아 바꾼다 (refreshImages).
 //   - 사이트 코드(.quartz)가 바뀌었으면 새 스크립트가 필요하므로 페이지 전체를 다시 불러온다 (스크롤 위치는 되살림).
 //   - 선을 눌러 연 창, 검색, 그래프 크게 보기가 열려 있으면 닫힐 때까지 미룬다.
 
@@ -114,8 +114,25 @@ async function softReload(build: string) {
   await window.spaNavigate(pageUrl, true)
   document.removeEventListener("nav", onNav)
   if (!navigated) throw new Error("페이지 갱신이 건너뛰어짐")
+  await refreshImages(build)
   window.scrollTo({ top: y })
   log("제자리 갱신 완료")
+}
+
+// 본문 그림(첨부 사진)은 주소가 그대로라 제자리 갱신 뒤에도 브라우저·CDN 캐시의 옛 파일이 보인다.
+// 같은 사이트 그림을 새로 받아 캐시를 바꾸고, 버전 붙은 주소로 바꿔 화면도 새 파일로 그린다
+async function refreshImages(build: string) {
+  const imgs = [...document.querySelectorAll<HTMLImageElement>("img[src]")].filter((img) => {
+    try {
+      return new URL(img.src).origin === location.origin
+    } catch {
+      return false
+    }
+  })
+  if (imgs.length === 0) return
+  const plain = (src: string) => src.split("?")[0]
+  await primeCache(imgs.map((img) => plain(img.src)))
+  for (const img of imgs) img.src = withVersion(plain(img.src), build).toString()
 }
 
 async function applyPending() {
