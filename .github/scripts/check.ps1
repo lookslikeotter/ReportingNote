@@ -157,8 +157,8 @@ foreach ($n in $notes) {
     $i++
     if ($i -le 2) { continue }   # 머리줄·구분줄
     $cells = [regex]::Split($l, '(?<!\\)\|')
-    if ($cells.Count -lt 7) { Err $n.Rel "표 행의 칸이 5개가 아님: $l"; continue }
-    $c = @(); for ($k = 1; $k -le 5; $k++) { $c += $cells[$k].Trim() }
+    if ($cells.Count -lt 8) { Err $n.Rel "표 행의 칸이 6개가 아님 (시간·사건·요약·장소·관련 인물·입수 경로): $l"; continue }
+    $c = @(); for ($k = 1; $k -le 6; $k++) { $c += $cells[$k].Trim() }
     # 하위 사건 행: 사건 칸이 ↳ 로 시작 (바로 위의 하위가 아닌 행이 큰 사건)
     $isSubRow = $false
     if ($c[1] -match '^↳\s*') { $isSubRow = $true; $c[1] = $c[1] -replace '^↳\s*', '' }
@@ -173,7 +173,7 @@ foreach ($n in $notes) {
     if (-not $target) { Err $n.Rel "사건 칸이 노트를 가리키지 않음: $($c[1])"; continue }
     $rows += [pscustomobject]@{
       Day = $dn; Kind = $kind; Time = $time; Target = $target; Summary = (Norm $c[2])
-      Related = (ResolveAll (LinkTargets $c[3])); Source = (Norm $c[4]); Line = $l; Sub = $isSubRow; Parent = $null
+      Place = (Norm $c[3]); Related = (ResolveAll (LinkTargets $c[4])); Source = (Norm $c[5]); Line = $l; Sub = $isSubRow; Parent = $null
     }
   }
   # 하위 행의 큰 사건 = 바로 위의 하위가 아닌 행
@@ -351,8 +351,20 @@ foreach ($c in $caseNotes) {
   if ($row.Kind -ne $wantKind) { Err $dayRel "'$($c.Name)' 행의 등급 이름표가 취재가치($grade)와 다름" }
   if ($row.Time -ne (Scalar $fm '시간')) { Err $dayRel "'$($c.Name)' 행의 시간($($row.Time))이 노트($(Scalar $fm '시간'))와 다름" }
   if ($row.Summary -ne (Norm (Scalar $fm '요약'))) { Err $dayRel "'$($c.Name)' 행의 요약이 노트와 다름`n    표: $($row.Summary)`n    노트: $(Norm (Scalar $fm '요약'))" }
-  if (($row.Related -join '|') -ne ($rel -join '|')) { Err $dayRel "'$($c.Name)' 행의 관련 인물 칸이 노트의 관련인물+관련세력과 다름`n    표: $($row.Related -join ', ')`n    노트: $($rel -join ', ')" }
-  if ($row.Source -ne (Norm $src)) { Err $dayRel "'$($c.Name)' 행의 입수 경로('$($row.Source)')가 노트('$(Norm $src)')와 다름" }
+  if ($row.Place -ne (Norm (Scalar $fm '장소'))) { Err $dayRel "'$($c.Name)' 행의 장소('$($row.Place)')가 노트('$(Norm (Scalar $fm '장소'))')와 다름" }
+  if ($isParent) {
+    # 큰 사건 행: 관련 인물 칸은 사람을 소속 조직으로 줄인 것 (소속 없는 사람은 그대로) + 관련세력, 등장 순. 입수 경로는 비운다
+    $short = @()
+    foreach ($t in (ListOf $fm '관련인물')) { $lt = LinkTargets $t; if ($lt.Count -eq 0) { continue }; $r = Resolve $lt[0]; if (-not $r) { continue }
+      $o = $null; $ol = LinkTargets (Scalar $r.Front '소속'); if ($ol.Count -gt 0) { $o = Resolve $ol[0] }
+      $v = if ($o) { $o.Path } else { $r.Path }; if ($short -notcontains $v) { $short += $v } }
+    foreach ($t in (ListOf $fm '관련세력')) { $lt = LinkTargets $t; if ($lt.Count -eq 0) { continue }; $r = Resolve $lt[0]; if ($r -and $short -notcontains $r.Path) { $short += $r.Path } }
+    if (($row.Related -join '|') -ne ($short -join '|')) { Err $dayRel "큰 사건 '$($c.Name)' 행의 관련 인물 칸이 조직으로 줄인 합집합과 다름`n    표: $($row.Related -join ', ')`n    기대: $($short -join ', ')" }
+    if ($row.Source -ne "") { Err $dayRel "큰 사건 '$($c.Name)' 행의 입수 경로는 비운다 ('$($row.Source)')" }
+  } else {
+    if (($row.Related -join '|') -ne ($rel -join '|')) { Err $dayRel "'$($c.Name)' 행의 관련 인물 칸이 노트의 관련인물+관련세력과 다름`n    표: $($row.Related -join ', ')`n    노트: $($rel -join ', ')" }
+    if ($row.Source -ne (Norm $src)) { Err $dayRel "'$($c.Name)' 행의 입수 경로('$($row.Source)')가 노트('$(Norm $src)')와 다름" }
+  }
   if ($isSub) {
     if (-not $row.Sub) { Err $dayRel "하위 사건 '$($c.Name)' 행의 사건 칸이 ↳ 로 시작하지 않음" }
     elseif ($parentNote -and (-not $row.Parent -or $row.Parent.Path -ne $parentNote.Path)) { Err $dayRel "'$($c.Name)' 행이 큰 사건 '$($parentNote.Name)' 행 아래에 있지 않음" }

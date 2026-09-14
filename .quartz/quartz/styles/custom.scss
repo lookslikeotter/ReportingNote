@@ -626,7 +626,7 @@ article table,
 }
 
 // ── 일지 표 (일지·첫 화면·사건 목록 페이지의 표, 그래프 선 창, 사건 기록 표) ──
-// 칸: 시간 | 사건 | 요약 | 관련 인물 | 입수 경로.
+// 칸: 시간 | 사건 | 요약 | 장소 | 관련 인물 | 입수 경로.
 // 사건 기록 표(인물·세력 페이지)만 앞에 '일차' 칸이 하나 더 있다 (.bn-has-day).
 // 칸마다 최소 너비를 보장해서 어느 표에서든 같은 크기로 보이게 하고, 내용이 길면 그 칸 안에서 줄을 바꾼다.
 // 다 넣을 자리가 없으면 칸을 줄이지 말고 상자(.table-container·.bn-case-table)가 옆으로 스크롤한다.
@@ -652,12 +652,17 @@ article table,
     width: 100%;
     min-width: 10em;
   }
-  // 관련 인물·입수 경로: 최소 너비는 지키고, 길어지면 옆 칸을 밀지 말고 줄을 바꾼다
+  // 장소
   & td:nth-child(#{4 + $o}) {
+    min-width: 6em;
+    max-width: 12em;
+  }
+  // 관련 인물·입수 경로: 최소 너비는 지키고, 길어지면 옆 칸을 밀지 말고 줄을 바꾼다
+  & td:nth-child(#{5 + $o}) {
     min-width: 9em;
     max-width: 22em;
   }
-  & td:nth-child(#{5 + $o}) {
+  & td:nth-child(#{6 + $o}) {
     min-width: 6em;
     max-width: 14em;
   }
@@ -966,11 +971,15 @@ a.internal.bn-chip {
       font-size: 12px;
       color: var(--gray);
     }
-    & td:nth-child(4)::before {
-      content: "관련 인물 · ";
+    & td:nth-child(4):not(:empty)::before {
+      content: "장소 · ";
       color: var(--gray);
     }
     & td:nth-child(5)::before {
+      content: "관련 인물 · ";
+      color: var(--gray);
+    }
+    & td:nth-child(6):not(:empty)::before {
       content: "입수 경로 · ";
       color: var(--gray);
     }

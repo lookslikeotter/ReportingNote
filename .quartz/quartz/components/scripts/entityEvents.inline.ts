@@ -5,7 +5,7 @@ import { decorateLinks, entityDayRows, linkResolver, loadContentData } from "./b
 // EntityEvents.tsx가 afterDOMLoaded로 싣는다. 행은 일지 표에서 그대로 가져오고(등급 색 띠 포함) 맨 앞에 일차 칸을 붙인다.
 // 일지 표 읽기는 그래프 선 창과 같은 bongnudo.ts를 쓴다.
 
-const DEFAULT_HEADS = ["시간", "사건", "요약", "관련 인물", "입수 경로"]
+const DEFAULT_HEADS = ["시간", "사건", "요약", "장소", "관련 인물", "입수 경로"]
 
 async function fillTable(section: HTMLElement, fullSlug: FullSlug) {
   const status = section.querySelector<HTMLElement>(".bn-entity-events-status")

@@ -350,7 +350,7 @@ document.addEventListener("bn-content-updated", () => (daysCache = null))
 function defaultHead(): HTMLElement {
   const thead = document.createElement("thead")
   const tr = document.createElement("tr")
-  for (const h of ["시간", "사건", "요약", "관련 인물", "입수 경로"]) {
+  for (const h of ["시간", "사건", "요약", "장소", "관련 인물", "입수 경로"]) {
     const th = document.createElement("th")
     th.textContent = h
     tr.append(th)
@@ -362,7 +362,7 @@ function defaultHead(): HTMLElement {
 // 일지 표에서 행을 못 찾은 사건: 사건 노트에서 아는 정보(취재가치·제목·요약)로 같은 칸 구성의 행을 만든다
 function fallbackRow(details: ContentDetails | undefined, href: string): HTMLElement {
   const tr = document.createElement("tr")
-  const cells = Array.from({ length: 5 }, () => document.createElement("td"))
+  const cells = Array.from({ length: 6 }, () => document.createElement("td"))
   // 시간 칸에 등급 이름표 (행 배경색). 시간은 알 수 없어 비워 둔다
   const grade = document.createElement("span")
   grade.className = (details?.tags ?? []).includes("특종") ? "bn-lv-scoop" : "bn-lv-news"
