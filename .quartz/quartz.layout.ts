@@ -24,12 +24,28 @@ import LatestDay from "./quartz/components/LatestDay"
 
 // 폴더는 기본으로 접고, ExplorerDefaults가 '01 일지'만 처음에 펼쳐 둔다.
 // 이름 앞 번호(01 일지, 001 이윤진)와 사건 폴더·문서의 번호(0일차-01 …, 0일차-01-2 … → 제목만)는 화면에서만 떼고,
-// 정렬은 원래 이름대로 한 뒤에 뗀다 (sort → map 순서)
+// 정렬은 원래 이름대로 한 뒤에 뗀다 (sort → map 순서).
+// 정렬: 인물 목록·기사 목록은 그 폴더 맨 위(굵게·아래 간격은 custom.scss), 그 밖은 Quartz 기본(폴더 먼저, 이름순).
+// sortFn·mapFn은 문자열로 페이지에 실려 브라우저에서 다시 만들어지므로 바깥 변수를 쓰면 안 되고,
+// 안에 이름 있는 함수(const f = () => …)도 두면 안 된다 (빌드가 __name(...)으로 감싸 브라우저에서 깨진다).
 const explorer = Component.Explorer({
   folderDefaultState: "collapsed",
   folderClickBehavior: "collapse",
   useSavedState: true,
   order: ["filter", "sort", "map"],
+  sortFn: (a, b) => {
+    const top = /^(02-인물\/인물-목록|05-취재·기사\/기사-목록)$/
+    const pa = !a.isFolder && top.test(a.slug)
+    const pb = !b.isFolder && top.test(b.slug)
+    if (pa !== pb) return pa ? -1 : 1
+    if (a.isFolder === b.isFolder) {
+      return a.displayName.localeCompare(b.displayName, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      })
+    }
+    return a.isFolder ? -1 : 1
+  },
   mapFn: (node) => {
     // 사건 폴더·노트 "0일차-02 제목"·"0일차-02-1 제목" → "제목", 그 밖의 번호 접두어 "02 인물" → "인물"
     node.displayName = node.displayName

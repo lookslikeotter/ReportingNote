@@ -307,6 +307,13 @@ td > code {
   margin-top: 0.6rem;
 }
 
+// 폴더 맨 위에 고정한 목록 노트(quartz.layout.ts sortFn): 굵게, 아래 항목과 살짝 간격
+.explorer .explorer-content a[data-for="02-인물/인물-목록"],
+.explorer .explorer-content a[data-for="05-취재·기사/기사-목록"] {
+  font-weight: 700;
+  margin-bottom: 0.3rem;
+}
+
 // 마지막 폴더(취재·기사)와 맨 위 파일(서버 정보) 사이 간격
 .explorer .explorer-ul > li:has(> .folder-container) + li:not(:has(> .folder-container)) {
   margin-top: 0.8rem;
