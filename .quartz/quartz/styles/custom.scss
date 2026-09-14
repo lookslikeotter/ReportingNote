@@ -1001,18 +1001,86 @@ a.internal.bn-chip {
 }
 
 // 봉누도2: 일지 표의 큰 사건/하위 사건 (DayTable.tsx · dayTable.inline.ts)
-// 큰 사건 행(bn-parent): 굵은 제목 앞에 큼직한 ▸ 칩 버튼, 뒤에 건수.
-// 하위 행(bn-sub): 행 전체를 옅은 배경으로 깔고, 맨 왼쪽(시간 칸)부터 들여써서 왼쪽에 세로 안내선을 긋는다.
-// 접힌 하위 행(bn-collapsed)은 숨긴다.
+// 큰 사건이 있는 표(bn-has-lead)는 맨 왼쪽에 좁은 앞 칸(bn-lead)이 있다.
+//   큰 사건·단독 행: 앞 칸이 표의 일부. 큰 사건 행은 여기에 ▸ 버튼.
+//   하위 행(bn-sub): 앞 칸이 투명(배경·테두리 없음) → 표가 한 칸 안쪽에서 시작하는 계단 모양.
+// 표 왼쪽 테두리는 표 전체가 아니라 행마다 그린다 (앞 칸 또는 하위 행의 시간 칸 왼쪽).
 :root {
-  --bn-sub-indent: 1.6em;
-  --bn-sub-guide: #b9c2d0;
+  --bn-lead-w: 2.6em;
   --bn-sub-bg: rgba(120, 130, 150, 0.07);
 }
 :root[saved-theme="dark"] {
-  --bn-sub-guide: #4b5563;
   --bn-sub-bg: rgba(160, 170, 190, 0.08);
 }
+table.bn-has-lead {
+  border-left: none;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+th.bn-lead,
+td.bn-lead {
+  width: var(--bn-lead-w);
+  min-width: var(--bn-lead-w);
+  max-width: var(--bn-lead-w);
+  padding: 6px 4px;
+  text-align: center;
+  vertical-align: middle;
+}
+// 큰 사건·단독 행과 머리줄: 앞 칸 왼쪽에 표 테두리
+table.bn-has-lead th.bn-lead,
+table.bn-has-lead tr:not(.bn-sub) > td.bn-lead {
+  box-shadow: inset 1px 0 0 var(--lightgray);
+}
+// 등급 띠는 앞 칸 왼쪽 끝에 (td:first-child 규칙이 그대로 앞 칸에 걸린다)
+// 하위 행: 앞 칸 투명, 표는 시간 칸부터
+table.bn-has-lead tr.bn-sub > td.bn-lead {
+  background: transparent !important;
+  border-bottom-color: transparent;
+  box-shadow: none !important;
+}
+table.bn-has-lead tr.bn-sub > td:not(.bn-lead) {
+  background-color: var(--bn-sub-bg);
+  color: var(--darkgray);
+  font-size: 0.95em;
+}
+table.bn-has-lead tr.bn-sub > td.bn-lead + td {
+  box-shadow: inset 1px 0 0 var(--lightgray);
+}
+table.bn-has-lead tr.bn-sub:has(.bn-lv-news) > td.bn-lead + td {
+  box-shadow: inset 5px 0 0 var(--bn-news-bar);
+}
+table.bn-has-lead tr.bn-sub:has(.bn-lv-scoop) > td.bn-lead + td {
+  box-shadow: inset 5px 0 0 var(--bn-scoop-bar);
+}
+table.bn-has-lead tr.bn-sub:has(.bn-lv-event) > td.bn-lead + td {
+  box-shadow: inset 5px 0 0 var(--bn-event-bar);
+}
+// 특종 하위 행의 옅은 주황 배경은 하위 배경으로 대신한다
+table.bn-has-lead tr.bn-sub:has(.bn-lv-scoop) > td:not(.bn-lead) {
+  background-color: var(--bn-sub-bg);
+}
+// 마우스를 올려도 하위 행의 앞 칸은 투명
+table.bn-has-lead tbody tr.bn-sub:hover > td.bn-lead {
+  background-color: transparent !important;
+}
+// 큰 사건 행: 굵은 제목, 건수 배지
+tr.bn-parent > td a {
+  font-weight: 700;
+}
+.bn-count {
+  margin-left: 0.45em;
+  padding: 0.05em 0.45em;
+  border-radius: 999px;
+  background: var(--lightgray);
+  color: var(--darkgray);
+  font-size: 0.78em;
+  font-weight: 500;
+  white-space: nowrap;
+}
+tr.bn-collapsed {
+  display: none !important;
+}
+// ▸ 버튼: 테두리 있는 칩
 .bn-toggle {
   all: unset;
   box-sizing: border-box;
@@ -1022,8 +1090,6 @@ a.internal.bn-chip {
   justify-content: center;
   width: 1.7em;
   height: 1.7em;
-  margin-right: 0.45em;
-  vertical-align: middle;
   border: 1.5px solid var(--secondary);
   border-radius: 6px;
   color: var(--secondary);
@@ -1038,93 +1104,78 @@ a.internal.bn-chip {
     color: var(--light);
   }
 }
-.bn-count {
-  margin-left: 0.45em;
-  padding: 0.05em 0.45em;
-  border-radius: 999px;
-  background: var(--lightgray);
-  color: var(--darkgray);
-  font-size: 0.78em;
-  font-weight: 500;
-  white-space: nowrap;
-}
-tr.bn-parent > td a {
-  font-weight: 700;
-}
-tr.bn-collapsed {
-  display: none !important;
-}
-// 하위 행: 옅은 배경 + 첫 칸 들여쓰기 + 세로 안내선
-tr.bn-sub > td {
-  background-color: var(--bn-sub-bg);
-  color: var(--darkgray);
-  font-size: 0.95em;
-}
-tr.bn-sub > td:first-child {
-  position: relative;
-  padding-left: calc(var(--bn-sub-indent) + 0.6em);
-  &::before {
-    content: "";
-    position: absolute;
-    left: var(--bn-sub-indent);
-    top: 0;
-    bottom: 0;
-    border-left: 2px solid var(--bn-sub-guide);
-  }
-  &::after {
-    content: "";
-    position: absolute;
-    left: var(--bn-sub-indent);
-    top: 50%;
-    width: 0.45em;
-    border-top: 2px solid var(--bn-sub-guide);
-  }
-}
-// 마지막 하위 행은 안내선을 가운데까지만 (└ 모양)
-tr.bn-sub.bn-last > td:first-child::before {
-  bottom: 50%;
-}
-// 사건 기록 표(.bn-has-day)는 첫 칸이 일차라서, 들여쓰기·안내선을 둘째 칸(시간)에 둔다
-.bn-case-table.bn-has-day table {
-  tr.bn-sub > td:first-child {
-    padding-left: 0.6em;
-    &::before,
-    &::after {
-      display: none;
-    }
-  }
-  tr.bn-sub > td:nth-child(2) {
-    position: relative;
-    padding-left: calc(var(--bn-sub-indent) + 0.6em);
-    &::before {
-      content: "";
-      position: absolute;
-      left: var(--bn-sub-indent);
-      top: 0;
-      bottom: 0;
-      border-left: 2px solid var(--bn-sub-guide);
-    }
-  }
-}
-// 특종 하위 행: 옅은 주황이 하위 배경과 겹치므로 하위 배경만 둔다
-tr.bn-sub:has(.bn-lv-scoop) > td {
-  background-color: var(--bn-sub-bg);
-}
 @media all and (max-width: 800px) {
   body[data-slug$="일차"] article table,
   body[data-slug="index"] article table,
   body[data-slug="01-일지/사건-목록"] article table {
+    & td.bn-lead {
+      display: none;
+    }
+    & tr.bn-parent > td.bn-lead {
+      display: block;
+      width: auto;
+      max-width: none;
+      text-align: left;
+      box-shadow: none;
+    }
     & tr.bn-sub {
       margin-left: 1.4rem;
-      border-left: 3px solid var(--bn-sub-guide);
+      border-left: 3px solid var(--lightgray);
       background-color: var(--bn-sub-bg);
     }
-    & tr.bn-sub > td:first-child {
-      padding-left: 0;
-      &::before,
-      &::after {
-        display: none;
-      }
+    & tr.bn-sub > td {
+      background-color: transparent !important;
+      box-shadow: none !important;
+    }
+  }
+}
+
+// 앞 칸(bn-lead)이 있는 표: 칸 규칙을 한 칸씩 민다 (위의 bn-day-cols 규칙보다 뒤에 있어야 이긴다)
+body[data-slug$="일차"] article table.bn-has-lead,
+body[data-slug="index"] article table.bn-has-lead,
+body[data-slug="01-일지/사건-목록"] article table.bn-has-lead,
+.bn-case-table:not(.bn-has-day) table.bn-has-lead {
+  @include bn-day-cols(1);
+  & td:nth-child(3) {
+    width: auto;
+  }
+}
+.bn-case-table.bn-has-day table.bn-has-lead {
+  @include bn-day-cols(2);
+  & td:nth-child(2) {
+    min-width: 4em;
+    white-space: nowrap;
+  }
+  & td:nth-child(4) {
+    width: auto;
+  }
+}
+@media all and (max-width: 800px) {
+  body[data-slug$="일차"] article table.bn-has-lead,
+  body[data-slug="index"] article table.bn-has-lead,
+  body[data-slug="01-일지/사건-목록"] article table.bn-has-lead {
+    & td:first-child {
+      font-size: inherit;
+      color: inherit;
+    }
+    & td:nth-child(2) {
+      font-size: 12px;
+      color: var(--gray);
+    }
+    & td:nth-child(4)::before {
+      content: none;
+    }
+    & td:nth-child(5):not(:empty)::before {
+      content: "장소 · ";
+      color: var(--gray);
+    }
+    & td:nth-child(6)::before {
+      content: "관련 인물 · ";
+      color: var(--gray);
+    }
+    & td:nth-child(7):not(:empty)::before {
+      content: "입수 경로 · ";
+      color: var(--gray);
     }
   }
 }
