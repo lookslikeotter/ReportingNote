@@ -65,7 +65,8 @@ const config: QuartzConfig = {
         },
         keepBackground: false,
       }),
-      Plugin.ObsidianFlavoredMarkdown({ enableInHtmlEmbed: false }),
+      // parseTags 끔: 태그는 frontmatter tags로만 쓴다. 본문에 적은 게임 속 해시태그(#멍총희사랑해 등)가 페이지 태그로 붙지 않게 한다
+      Plugin.ObsidianFlavoredMarkdown({ enableInHtmlEmbed: false, parseTags: false }),
       Plugin.GitHubFlavoredMarkdown(),
       Plugin.TableOfContents(),
       Plugin.CrawlLinks({ markdownLinkResolution: "shortest" }),
