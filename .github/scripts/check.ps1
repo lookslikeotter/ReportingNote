@@ -411,8 +411,8 @@ foreach ($p in $people) {
   $numbered = $p.Name -match '^(\d{3}) (.+)$'
   if ($numbered) {
     $num = $matches[1]; $nm = $matches[2]
-    # 이름을 모르는 인물(미상-…)은 aliases를 비워 둬도 된다
-    if ($nm -notmatch '^미상[\s-]' -and (ListOf $fm 'aliases') -notcontains $nm) { Err $p.Rel "aliases에 번호를 뺀 이름 '$nm' 없음" }
+    # 이름을 모르는 인물(？(특징))은 aliases를 비워 둬도 된다
+    if ($nm -notmatch '^？\(' -and (ListOf $fm 'aliases') -notcontains $nm) { Err $p.Rel "aliases에 번호를 뺀 이름 '$nm' 없음" }
     if ($num -ne "000" -and $tags -notcontains "인물") { Err $p.Rel "tags에 인물 없음" }
     if ($num -eq "000" -and $tags -contains "인물") { Err $p.Rel "명총희 노트에는 인물 태그를 달지 않음" }
   } else {

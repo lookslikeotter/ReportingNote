@@ -105,7 +105,7 @@ export const ME = "02-인물/000-명총희" as SimpleSlug
 
 // 노드 이름표: 인물 이름 앞 번호(001 등)는 뗀다
 export function nodeLabel(title: string): string {
-  return title.replace(/^\d{3}\s+/, "")
+  return title.replace(/^\d{3}\s+/, "").replace(/^？/, "?")
 }
 
 // ── 이름·링크 ──

@@ -34,6 +34,7 @@ const explorer = Component.Explorer({
     node.displayName = node.displayName
       .replace(/^\d+일차-\d+(?:-\d+)?\s+/, "")
       .replace(/^\d+\s+/, "")
+      .replace(/^？/, "?")
   },
 })
 
