@@ -317,7 +317,7 @@ foreach ($c in $caseNotes) {
   }
   $src = Scalar $fm '입수경로'
   $srcLinks = LinkTargets $src
-  if ($src -ne "" -and $src -ne "직접" -and $srcLinks.Count -eq 0) { Warn $c.Rel "입수경로가 '직접'도 링크도 아님: '$src'" }
+  if ($src -ne "" -and $src -ne "직접" -and $src -ne "SNS" -and $srcLinks.Count -eq 0) { Warn $c.Rel "입수경로가 '직접'·'SNS'도 링크도 아님: '$src'" }
   foreach ($t in $srcLinks) {
     $r = Resolve $t
     if ($r -and $r.Folder -eq "02 인물" -and (Norm $src) -eq (Norm "[[${t}]]")) { $heard += $r.Path }  # 직접 들은 사람도 만남
