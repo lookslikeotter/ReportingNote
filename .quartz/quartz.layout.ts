@@ -16,6 +16,7 @@ import InfoBox from "./quartz/components/InfoBox"
 import DayNav from "./quartz/components/DayNav"
 import LinkChips from "./quartz/components/LinkChips"
 import GraphToggle from "./quartz/components/GraphToggle"
+import LatestDay from "./quartz/components/LatestDay"
 
 // 봉누도2 — 원본은 볼트의 .quartz/quartz.layout.ts. GitHub Actions가 빌드 때 Quartz에 덮어쓴다.
 // 실제 날짜가 보이지 않도록 ContentMeta(수정일·읽는 시간)는 넣지 않고, 바닥글도 도구 이름·연도가 없는 BnFooter를 쓴다.
@@ -83,6 +84,8 @@ export const defaultContentPageLayout: PageLayout = {
         { Component: Component.ReaderMode() },
       ],
     }),
+    // 탐색기 맨 위: 최신 일지(첫 화면)로 가는 항목
+    LatestDay(),
     explorer,
   ],
   // 오른쪽은 그래프 2개만 (위: 인물 그래프, 아래: 기본 그래프). 목차·백링크는 넣지 않는다.
@@ -109,6 +112,8 @@ export const defaultListPageLayout: PageLayout = {
         { Component: Component.Darkmode() },
       ],
     }),
+    // 탐색기 맨 위: 최신 일지(첫 화면)로 가는 항목
+    LatestDay(),
     explorer,
   ],
   right: [],
