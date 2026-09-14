@@ -640,9 +640,9 @@ article table,
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
   }
-  // 사건: 굵게
+  // 사건: 굵게, 제목이 너무 잘게 줄바꿈되지 않게 너비를 넉넉히
   & td:nth-child(#{2 + $o}) {
-    min-width: 7em;
+    min-width: 12em;
   }
   & td:nth-child(#{2 + $o}) a {
     font-weight: 600;
