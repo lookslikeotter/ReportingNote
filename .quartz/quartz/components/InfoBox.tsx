@@ -12,7 +12,8 @@ import type { ComponentChildren } from "preact"
 // 큰 사건·하위 사건도 type 사건이다 (하위 사건은 `상위`가 있어 '큰 사건' 행이 붙는다).
 
 type Kind = "text" | "links" | "badge" | "day" | "bool"
-type Field = { key: string; label: string; kind: Kind }
+// always: 값이 비어도 행을 두고 "—"로 보인다 (나중에 채울 자리라는 뜻)
+type Field = { key: string; label: string; kind: Kind; always?: boolean }
 
 const FIELDS: Record<string, Field[]> = {
   사건: [
@@ -66,8 +67,8 @@ const FIELDS: Record<string, Field[]> = {
   장소: [
     { key: "구역", label: "구역", kind: "text" },
     { key: "관련세력", label: "관련 세력", kind: "links" },
-    // 좌표는 지도에만 쓰고 카드에는 우편번호만 보인다
-    { key: "우편번호", label: "우편번호", kind: "text" },
+    // 좌표는 지도에만 쓰고 카드에는 우편번호만 보인다. 모르면 "—" (나중에 채운다)
+    { key: "우편번호", label: "우편번호", kind: "text", always: true },
     { key: "포함장소", label: "포함 장소", kind: "text" },
   ],
 }
@@ -165,6 +166,7 @@ const InfoBox: QuartzComponent = ({ fileData, allFiles, displayClass }: QuartzCo
     if (f.key === "합격인원" && v !== undefined && v !== null && v !== "") v = `${v}명`
     const r = render(v, f.kind)
     if (r !== null) rows.push([f.label, r])
+    else if (f.always) rows.push([f.label, "—"])
   }
   // 세력: 관계 태그(경쟁/판도라연구소)를 상대 세력 링크로
   if (type === "세력") {

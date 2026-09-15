@@ -204,10 +204,14 @@ td > code {
 
 // ── 탐색기 (Notion 사이드바 스타일) ──
 
-// 탐색기 맨 위 '최신 일지' 항목 (LatestDay.tsx): 최상위 폴더보다 조금 크게, 첫 화면에서는 옅은 배경
+// 탐색기 맨 위 '최신 일지' 항목 (LatestDay.tsx)과 그 아래 '지도' 항목 (MapLink.tsx): 최상위 폴더보다 조금 크게, 지금 페이지면 옅은 배경
 .bn-latest {
   display: block;
   margin: 0.8rem 0 0;
+
+  &.bn-map-link {
+    margin-top: 0.2rem;
+  }
   padding: 3px 8px;
   border-radius: 6px;
   font-size: 18px;

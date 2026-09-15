@@ -20,6 +20,7 @@ import DayNav from "./quartz/components/DayNav"
 import LinkChips from "./quartz/components/LinkChips"
 import GraphToggle from "./quartz/components/GraphToggle"
 import LatestDay from "./quartz/components/LatestDay"
+import MapLink from "./quartz/components/MapLink"
 
 // 봉누도2 — 원본은 볼트의 .quartz/quartz.layout.ts. GitHub Actions가 빌드 때 Quartz에 덮어쓴다.
 // 실제 날짜가 보이지 않도록 ContentMeta(수정일·읽는 시간)는 넣지 않고, 바닥글도 도구 이름·연도가 없는 BnFooter를 쓴다.
@@ -36,6 +37,8 @@ const explorer = Component.Explorer({
   folderClickBehavior: "collapse",
   useSavedState: true,
   order: ["filter", "sort", "map"],
+  // 지도.md는 파일 목록에서 빼고 맨 위 '지도' 항목(MapLink)으로만 (tags 제외는 Quartz 기본)
+  filterFn: (node) => node.slugSegment !== "tags" && node.slug !== "지도",
   sortFn: (a, b) => {
     const top = /^(02-인물\/인물-목록|03-세력\/세력-목록|04-장소\/장소-목록|05-취재·기사\/기사-목록)$/
     const pa = !a.isFolder && top.test(a.slug)
@@ -107,6 +110,8 @@ export const defaultContentPageLayout: PageLayout = {
     }),
     // 탐색기 맨 위: 최신 일지(첫 화면)로 가는 항목
     LatestDay(),
+    // 그 아래 지도 페이지로 가는 항목
+    MapLink(),
     explorer,
   ],
   // 오른쪽은 위 작은 지도(MiniMap), 아래 그래프 상자(GraphBox: '이 페이지'·'인물' 탭). 목차·백링크는 넣지 않는다.
@@ -130,6 +135,8 @@ export const defaultListPageLayout: PageLayout = {
     }),
     // 탐색기 맨 위: 최신 일지(첫 화면)로 가는 항목
     LatestDay(),
+    // 그 아래 지도 페이지로 가는 항목
+    MapLink(),
     explorer,
   ],
   right: [],
