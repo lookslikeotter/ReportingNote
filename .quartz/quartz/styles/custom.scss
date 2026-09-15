@@ -382,26 +382,6 @@ td > code {
 .bn-minimap-root {
   height: 100%;
 }
-.bn-minimap-open {
-  position: absolute;
-  top: 0.4rem;
-  right: 0.4rem;
-  z-index: 1001;
-  padding: 0.15rem 0.6rem;
-  border: 1px solid var(--lightgray);
-  border-radius: 999px;
-  background: var(--light);
-  color: var(--darkgray);
-  font-size: 0.72rem;
-  line-height: 1.4;
-  text-decoration: none;
-  opacity: 0.9;
-
-  &:hover {
-    opacity: 1;
-    background: var(--lightgray);
-  }
-}
 // 좁은 화면(1200px 미만)에서는 320px씩
 .page > #quartz-body .sidebar.right .graph > .graph-outer {
   height: 320px;

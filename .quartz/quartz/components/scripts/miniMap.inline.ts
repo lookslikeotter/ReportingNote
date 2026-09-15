@@ -16,7 +16,7 @@ import {
 // MiniMap.tsx가 afterDOMLoaded로 싣는다. 지도 도구는 bnMapLib.ts.
 //   - 장소 노드 전부를 점으로 (크기는 사건 수). 이름표는 마우스를 올렸을 때만
 //   - 지금 페이지가 그 장소·세력이면, 또는 사건 페이지면 그 사건이 있었던 곳을 강조하고 그쪽으로 옮긴다
-//   - 점을 누르면 그 장소·세력 페이지로, 노트가 없는 곳이면 지도 페이지로
+//   - 점을 누르면 그 장소·세력 페이지로, 노트가 없는 곳이면 지도 페이지로. 휠로 확대·축소
 //   - 한 번 만든 지도는 페이지를 옮겨도 그대로 쓴다 (인물 그래프와 같은 방식). 새 기록이 오면 버린다
 
 type Kept = {
@@ -44,7 +44,8 @@ async function build(container: HTMLElement, fullSlug: FullSlug) {
   root.className = "bn-minimap-root"
   removeAllChildren(container)
   container.append(root)
-  const map = createMap(L, root, { zoomControl: false, scrollWheelZoom: false })
+  // 확대·축소는 휠·핀치로 (단추 없음)
+  const map = createMap(L, root, { zoomControl: false })
   const markers = addPlaceMarkers(L, map, graph.nodes, {
     count: (n) => n.rows.length,
     labels: "hover",

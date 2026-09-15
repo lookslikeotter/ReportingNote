@@ -46,7 +46,8 @@ import {
 //   - 선은 사건 인연 선만 (일지 표 📰·🔥 행 관련 인물 칸에 함께 적힌 두 인물, 사건이 많을수록 굵고 가깝게).
 //     명총희는 인물 태그가 없어 노드도 선도 없다.
 //     같은 소속끼리는 선 없이 보이지 않는 힘으로 가까이 모은다
-//   - 배치를 미리 계산해 인물이 모여 있는 곳(bongnudo.ts focusBox)이 화면에 들어오게 맞추고, 인물 페이지로 가면 그 인물 쪽으로 옮기며 확대한다
+//   - 배치를 미리 계산해 인물이 모여 있는 곳(bongnudo.ts focusBox)이 화면에 들어오게 맞춘 뒤, 노드를 처음 위치로 되돌려
+//     흔들리며 자리 잡는 모습을 보여 준다. 인물 페이지로 가면 그 인물 쪽으로 옮기며 확대한다 (미리 계산한 위치 기준)
 //   - 페이지를 옮겨도 다시 그리지 않는다 (크기·테마가 바뀔 때만)
 //   - 선에 마우스를 올리면 하이라이트, 누르면 두 인물이 함께 엮인 사건 표 창
 const PERSON_TAG = "인물"
@@ -203,6 +204,9 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
   // 배치를 미리 계산해 두고 시작한다 (한 화면에 맞추려면 최종 위치가 필요)
   simulation.stop()
   for (let i = 0; i < 300; i++) simulation.tick()
+  // 자리 잡은 뒤의 위치. 아래에서 노드를 처음 위치로 되돌려 흔들리며 모이는 모습을 보여 주므로,
+  // 인물 쪽으로 옮기는 계산(panToNode)은 이 값을 쓴다 (초기 위치와 힘이 같아서 같은 자리로 모인다)
+  const finalPos = new Map(graphData.nodes.map((n) => [n.id, { x: n.x ?? 0, y: n.y ?? 0 }]))
 
   // precompute style prop strings as pixi doesn't support css variables
   const cssVars = [
@@ -541,8 +545,8 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
 
     let panFrame = 0
     panToNode = (id: string, zoomIn = false) => {
-      const node = nodeById.get(id as SimpleSlug)
-      if (!node || node.x === undefined || node.y === undefined) return
+      const node = finalPos.get(id as SimpleSlug)
+      if (!node) return
       const k0 = currentTransform.k
       const k1 = zoomIn ? Math.max(k0, FOCUS_ZOOM) : k0
       // 지금 화면 가운데가 가리키는 그래프 좌표 → 목표 노드 좌표로, 배율과 함께 부드럽게 옮긴다
@@ -571,6 +575,12 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     // 처음 그릴 때(새로고침·첫 방문)도 인물 페이지면 전체 화면에서 그 인물 쪽으로 옮기며 확대한다
     panToNode(slug, true)
   }
+
+  // 배율을 맞췄으니 처음 위치로 되돌리고 다시 움직이게 한다 ('이 페이지' 그래프와 같은 방식)
+  for (const n of graphData.nodes) {
+    n.x = n.y = n.vx = n.vy = undefined
+  }
+  simulation.nodes(graphData.nodes).alpha(1).restart()
 
   // 선 위에 마우스를 올리면 하이라이트, 누르면 사건 표 창
   function setHoveredLink(l: LinkRenderData | null) {
