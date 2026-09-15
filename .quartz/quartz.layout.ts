@@ -37,7 +37,7 @@ const explorer = Component.Explorer({
   useSavedState: true,
   order: ["filter", "sort", "map"],
   sortFn: (a, b) => {
-    const top = /^(02-인물\/인물-목록|05-취재·기사\/기사-목록)$/
+    const top = /^(02-인물\/인물-목록|03-세력\/세력-목록|04-장소\/장소-목록|05-취재·기사\/기사-목록)$/
     const pa = !a.isFolder && top.test(a.slug)
     const pb = !b.isFolder && top.test(b.slug)
     if (pa !== pb) return pa ? -1 : 1

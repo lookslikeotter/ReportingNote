@@ -100,7 +100,7 @@ export function applyGraphMode() {
 
 // 그래프에 남기는 정보 노드: 인물·세력·장소 (목록 문서는 뺀다)
 const INFO_PREFIXES = ["02-인물/", "03-세력/", "04-장소/"]
-const INFO_EXCLUDE = ["02-인물/인물-목록", "03-세력/세력-목록"]
+const INFO_EXCLUDE = ["02-인물/인물-목록", "03-세력/세력-목록", "04-장소/장소-목록"]
 
 export function isInfoNode(id: string): boolean {
   return INFO_PREFIXES.some((p) => id.startsWith(p)) && !INFO_EXCLUDE.includes(id)
@@ -676,6 +676,7 @@ export async function caseNodeLinks(
 
 // 이 인물·세력이 일지 표 '관련 인물' 칸에 있는 행 (명총희는 '입수 경로' 칸이 인물 링크뿐인 행도: 직접 전해 들은 일)
 // + 그 사건의 `가담인물`에 이 인물이 있는 행 (조직이 주체라 '관련 인물' 칸에 이름이 없는 경우).
+// 장소 페이지는 '장소' 칸이 이 장소인 행 (링크, 또는 이름·별칭·포함장소와 같은 글자 — bn-days.json places).
 // ☕ 일상도 넣는다. 하위 행의 큰 사건 행은 문맥으로 끼워 넣는다. 일지 순서 그대로 (일차 → 행 순).
 export async function entityDayRows(
   currentSlug: FullSlug,
@@ -684,12 +685,18 @@ export async function entityDayRows(
   id: SimpleSlug,
 ): Promise<{ thead: Element | null; rows: DayRow[] }> {
   const { thead, rows, joined } = await readDayTables(currentSlug, data, resolveLink)
+  const placeNames = new Set(
+    ((await fetchDays(currentSlug))?.places?.[id]?.names ?? []).map(normalizeName),
+  )
+  const atPlace = (r: DayRow) =>
+    r.places.some((p) => (p.slug ? p.slug === id : placeNames.has(normalizeName(p.text))))
   const hits = rows.filter(
     (r) =>
       !r.hasSubs &&
       (r.related.has(id) ||
         (joined[r.id] ?? []).includes(id) ||
-        (id === ME && r.sources.length > 0)),
+        (id === ME && r.sources.length > 0) ||
+        (id.startsWith("04-장소/") && atPlace(r))),
   )
   return { thead, rows: withParents(rows, hits) }
 }

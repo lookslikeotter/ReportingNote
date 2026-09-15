@@ -309,6 +309,8 @@ td > code {
 
 // 폴더 맨 위에 고정한 목록 노트(quartz.layout.ts sortFn): 굵게, 아래 항목과 살짝 간격
 .explorer .explorer-content a[data-for="02-인물/인물-목록"],
+.explorer .explorer-content a[data-for="03-세력/세력-목록"],
+.explorer .explorer-content a[data-for="04-장소/장소-목록"],
 .explorer .explorer-content a[data-for="05-취재·기사/기사-목록"] {
   font-weight: 700;
   margin-bottom: 0.3rem;
