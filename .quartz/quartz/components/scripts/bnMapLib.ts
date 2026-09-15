@@ -14,8 +14,8 @@ import {
 //   - 바탕 지도: static/map/tiles/{z}/{x}/{y}.webp (GTA V Atlas 스타일 조각, .github/scripts/map-tiles.js가 받아 둔 것)
 //   - 좌표계: gta-v-map-leaflet 방식 — 게임 좌표를 그대로 Leaflet 좌표([y, x])로 쓰고, 조각 픽셀로 바꾸는 식은
 //     px = x·0.02072 + 117.3, py = −y·0.0205 + 172.8 (확대 0단계 256px 기준, 단계마다 2배)
-//   - 우편번호: static/map/postals.json ({ "8032": [x, y] }). 확대하면 지도 위에 번호를 그리고,
-//     일지 표 '장소' 칸에 우편번호가 적힌 사건("미션로우 8032")은 노트 없이도 그 자리에 찍힌다
+//   - 우편번호: static/map/postals.json ({ "8032": [x, y] }) — 우편번호를 게임 좌표로 바꾸는 표.
+//     노트의 `우편번호`와 일지 표 '장소' 칸에 우편번호가 적힌 사건("미션로우 8032")이 이걸로 자리를 찾는다 (지도에 번호를 그리지는 않는다)
 //   - 장소 노드: 세력·장소 노트의 `좌표`·`우편번호`(bn-days.json places). 일지 표 '장소' 칸의 링크·글자를
 //     노트 이름·별칭·`포함장소`로 찾아 그 노드에 사건을 모은다. 찾지 못한 장소는 '위치를 모르는 장소'로 돌려준다
 // Leaflet은 Quartz에 없어서 static/map/leaflet.js를 페이지에 끼워 넣어 쓴다 (전역 L)
@@ -41,19 +41,29 @@ export function mapBase(): URL {
   return new URL("static/map/", new URL(".", s?.src ?? location.href))
 }
 
+// Leaflet 스타일은 사이트 안 이동(SPA) 때 <head>에서 지워지지 않게 spa-preserve를 붙이고, 그래도 없으면 다시 넣는다
+// (스타일이 빠지면 조각이 제자리에 놓이지 않고 흩어져 보인다)
+function ensureLeafletCss() {
+  if (document.head.querySelector('link[data-bn-leaflet]')) return
+  const css = document.createElement("link")
+  css.rel = "stylesheet"
+  css.href = new URL("leaflet.css", mapBase()).toString()
+  css.setAttribute("spa-preserve", "")
+  css.setAttribute("data-bn-leaflet", "")
+  document.head.append(css)
+}
+
 let leafletPromise: Promise<any> | null = null
 export function loadLeaflet(): Promise<any> {
   const w = window as any
+  ensureLeafletCss()
   if (w.L) return Promise.resolve(w.L)
   if (!leafletPromise) {
     const base = mapBase()
     leafletPromise = new Promise((resolve, reject) => {
-      const css = document.createElement("link")
-      css.rel = "stylesheet"
-      css.href = new URL("leaflet.css", base).toString()
-      document.head.append(css)
       const script = document.createElement("script")
       script.src = new URL("leaflet.js", base).toString()
+      script.setAttribute("spa-preserve", "")
       script.onload = () => resolve(w.L)
       script.onerror = () => {
         leafletPromise = null
@@ -116,41 +126,6 @@ export function createMap(
     keepBuffer: 2,
   }).addTo(map)
   return map
-}
-
-// 우편번호 층: 조각마다 캔버스에 번호를 그린다 (minZoom부터 보임)
-export function postalLayer(L: any, postals: Postals, opts: { minZoom: number }): any {
-  const font = getComputedStyle(document.documentElement).getPropertyValue("--bodyFont")
-  const entries = Object.entries(postals)
-  const Layer = L.GridLayer.extend({
-    createTile(coords: any) {
-      const tile = document.createElement("canvas")
-      const size = this.getTileSize()
-      const dpr = window.devicePixelRatio || 1
-      tile.width = size.x * dpr
-      tile.height = size.y * dpr
-      tile.style.width = size.x + "px"
-      tile.style.height = size.y + "px"
-      const ctx = tile.getContext("2d")!
-      ctx.scale(dpr, dpr)
-      ctx.font = `600 10px ${font}`
-      ctx.textAlign = "center"
-      ctx.textBaseline = "middle"
-      ctx.lineWidth = 3
-      ctx.lineJoin = "round"
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.85)"
-      ctx.fillStyle = "#2b2b2b"
-      const origin = coords.scaleBy(size)
-      for (const [code, [x, y]] of entries) {
-        const p = this._map.project(L.latLng(y, x), coords.z).subtract(origin)
-        if (p.x < -24 || p.x > size.x + 24 || p.y < -8 || p.y > size.y + 8) continue
-        ctx.strokeText(code, p.x, p.y)
-        ctx.fillText(code, p.x, p.y)
-      }
-      return tile
-    },
-  })
-  return new Layer({ minZoom: opts.minZoom, tileSize: 256, updateWhenZooming: false })
 }
 
 // ── 장소 노드 ──

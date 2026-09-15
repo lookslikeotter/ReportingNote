@@ -562,6 +562,13 @@ body[data-slug="지도"] .bn-minimap {
 .leaflet-container {
   font-family: var(--bodyFont);
   background-color: #0fa0cd;
+
+  // 사이트 기본 그림 규칙(둥근 모서리·위아래 여백)이 지도 조각에 닿지 않게
+  & img {
+    margin: 0;
+    border-radius: 0;
+    max-width: none;
+  }
 }
 // 어두운 테마에서는 바탕 지도를 조금 어둡게
 :root[saved-theme="dark"] .leaflet-tile-pane {
@@ -718,12 +725,6 @@ body[data-slug="지도"] .bn-minimap {
   margin-right: 0.35rem;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-  color: var(--gray);
-}
-
-.bn-map-hint {
-  margin: 0.4rem 0 0;
-  font-size: 12px;
   color: var(--gray);
 }
 

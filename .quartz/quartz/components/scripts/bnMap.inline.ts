@@ -8,7 +8,6 @@ import {
   fitNodes,
   loadLeaflet,
   loadPostals,
-  postalLayer,
   updateMarker,
 } from "./bnMapLib"
 
@@ -17,10 +16,8 @@ import {
 //   - 위: 일차 고르기 (전체 · N일차). 고르면 점 크기가 그 일차의 사건 수로 바뀐다
 //   - 점에 마우스를 올리면 오른쪽 위 창에 그곳에서 있었던 사건 목록, 창에 마우스를 넣으면 유지된다
 //   - 점을 누르면 그 장소·세력 페이지로 간다. 노트가 없는 곳(우편번호로만 찍힌 곳)은 창을 고정한다
-//   - 확대하면(5단계부터) 우편번호가 보인다
 //   - 아래 '위치를 모르는 장소': 일지 표 '장소' 칸에 있지만 좌표·우편번호를 몰라 못 찍은 곳
 
-const POSTAL_MIN_ZOOM = 5
 const HIDE_DELAY = 220
 
 async function setup(section: HTMLElement, fullSlug: FullSlug) {
@@ -43,7 +40,6 @@ async function setup(section: HTMLElement, fullSlug: FullSlug) {
     if (!section.isConnected) return
     status?.remove()
     const map = createMap(L, canvas)
-    postalLayer(L, postals, { minZoom: POSTAL_MIN_ZOOM }).addTo(map)
     window.addCleanup(() => map.remove())
 
     // ── 일차 고르기 ──

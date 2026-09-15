@@ -19,9 +19,6 @@ const BnMap: QuartzComponent = ({ fileData, displayClass }: QuartzComponentProps
         <aside class="bn-map-panel" hidden></aside>
         <p class="bn-map-status">지도를 불러오는 중…</p>
       </div>
-      <p class="bn-map-hint">
-        점에 마우스를 올리면 그곳에서 있었던 사건이 보이고, 누르면 그 장소 페이지로 간다. 확대하면 우편번호가 보인다.
-      </p>
       <details class="bn-map-unplaced" hidden>
         <summary></summary>
         <ul></ul>
