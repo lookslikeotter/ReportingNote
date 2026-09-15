@@ -10,8 +10,8 @@ import { classNames } from "../util/lang"
 import { D3Config } from "./Graph"
 
 // 봉누도2 — 오른쪽 아래 그래프 상자. 원본은 볼트의 .quartz/quartz/components/GraphBox.tsx (빌드 때 Quartz에 복사).
-// 탭 하나로 두 그래프를 바꿔 본다: '이 페이지'(Quartz 기본 그래프 수정본, graph.inline.ts — 지금 페이지의 이웃 인물·세력·장소)
-// 와 '인물'(peopleGraph.inline.ts — 인물 전부). 각 탭에 크게 보기 버튼과 창이 있다.
+// 탭 하나로 두 그래프를 바꿔 본다: '사건 그래프'(Quartz 기본 그래프 수정본, graph.inline.ts — 지금 페이지의 이웃 인물·세력·장소)
+// 와 '인물 그래프'(peopleGraph.inline.ts — 인물 전부). 각 탭에 크게 보기 버튼과 창이 있다.
 // 세 스크립트를 하나씩 IIFE로 감싸 함께 싣는다 (Quartz는 컴포넌트마다 스크립트 하나만 받는다).
 // 고른 탭은 브라우저에 남는다 (graphBox.inline.ts · bongnudo.ts graphMode).
 
@@ -81,10 +81,10 @@ export default ((opts?: GraphBoxOptions) => {
       <div class={classNames(displayClass, "graph", "bn-graph-box")} data-mode="local">
         <div class="bn-graph-tabs" role="tablist" aria-label="그래프 고르기">
           <button type="button" role="tab" data-mode="local" aria-selected="true">
-            이 페이지
+            사건 그래프
           </button>
           <button type="button" role="tab" data-mode="people" aria-selected="false">
-            인물
+            인물 그래프
           </button>
         </div>
         <div class="graph-outer bn-mode-local">

@@ -27,8 +27,6 @@ const MAP_BOUNDS: [[number, number], [number, number]] = [
   [-4000, -5500],
   [8000, 6000],
 ]
-// 조각 바깥에 보이는 바다 색 (조각 가장자리 색과 같게)
-export const OCEAN = "#0fa0cd"
 const TILE_MAX_ZOOM = 5
 
 // ── 사이트 파일 ──

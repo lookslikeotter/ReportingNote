@@ -67,7 +67,7 @@ export function fetchDays(currentSlug: FullSlug): Promise<DayData | null> {
 }
 document.addEventListener("bn-content-updated", () => (daysCache = null))
 
-// ── 오른쪽 그래프 상자의 모드 (GraphBox.tsx: '이 페이지' 그래프 ↔ '인물' 그래프) ──
+// ── 오른쪽 그래프 상자의 모드 (GraphBox.tsx: '사건 그래프' local ↔ '인물 그래프' people) ──
 // 브라우저에 기억한다. 두 그래프 스크립트가 nav 때 먼저 applyGraphMode로 상자에 표시하고, 보이는 쪽만 그린다
 
 export type GraphMode = "local" | "people"

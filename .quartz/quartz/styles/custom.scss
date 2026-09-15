@@ -319,7 +319,7 @@ td > code {
   margin-top: 0.8rem;
 }
 
-// ── 오른쪽: 위 작은 지도(MiniMap.tsx) · 아래 그래프 상자(GraphBox.tsx — '이 페이지'·'인물' 탭) ──
+// ── 오른쪽: 위 작은 지도(MiniMap.tsx) · 아래 그래프 상자(GraphBox.tsx — '사건 그래프'·'인물 그래프' 탭) ──
 .graph > h3 {
   display: none;
 }
@@ -376,7 +376,7 @@ td > code {
   border: 1px solid var(--lightgray);
   border-radius: 12px;
   overflow: hidden;
-  background-color: #0fa0cd;
+  background-color: var(--light);
 }
 .bn-minimap-container,
 .bn-minimap-root {
@@ -533,7 +533,7 @@ td > code {
 // ── 지도 (지도 페이지 BnMap.tsx · 작은 지도 MiniMap.tsx · Leaflet 공통) ──
 .leaflet-container {
   font-family: var(--bodyFont);
-  background-color: #0fa0cd;
+  background-color: var(--light);
 
   // 사이트 기본 그림 규칙(둥근 모서리·위아래 여백)이 지도 조각에 닿지 않게
   & img {
@@ -542,9 +542,9 @@ td > code {
     max-width: none;
   }
 }
-// 어두운 테마에서는 바탕 지도를 조금 어둡게
-:root[saved-theme="dark"] .leaflet-tile-pane {
-  filter: brightness(0.78) saturate(0.85);
+// 바탕 지도는 조금 투명하게 — 페이지 바탕색이 비쳐 옅어지고(어두운 테마에서는 어두워지고) 점·이름표가 도드라진다
+.leaflet-tile-pane {
+  opacity: 0.72;
 }
 // 장소 이름표: 배경 없이 흰 테두리 글자 (그래프 이름표와 같은 느낌)
 .leaflet-tooltip.bn-map-label {
@@ -612,7 +612,7 @@ td > code {
   border: 1px solid var(--lightgray);
   border-radius: 12px;
   overflow: hidden;
-  background-color: #0fa0cd;
+  background-color: var(--light);
 }
 .bn-map-canvas {
   height: 100%;
