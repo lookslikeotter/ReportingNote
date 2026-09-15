@@ -15,7 +15,7 @@ const config: QuartzConfig = {
     analytics: null,
     locale: "ko-KR",
     baseUrl: "lookslikeotter.github.io/ReportingNote",
-    // private/는 저장소에는 있지만 사이트에는 내지 않는다 (등급 체크 보드 등). 나머지는 배포 워크플로가 이미 빼지만 로컬 빌드를 위해 둔다
+    // private/가 생기면 사이트에는 내지 않는다 (지금은 비어 있음). 나머지는 배포 워크플로가 이미 빼지만 로컬 빌드를 위해 둔다
     ignorePatterns: ["private", "99 템플릿", ".obsidian", "CLAUDE.md"],
     defaultDateType: "modified",
     // Notion 스타일 (getdesign.md의 Notion DESIGN.md 참고). 글꼴은 Pretendard(Inter+한글)를
