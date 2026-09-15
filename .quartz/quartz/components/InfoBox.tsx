@@ -32,7 +32,6 @@ const FIELDS: Record<string, Field[]> = {
     { key: "직책", label: "직책", kind: "text" },
     { key: "나이", label: "나이", kind: "text" },
     { key: "생일", label: "생일", kind: "text" },
-    { key: "관계", label: "명총희와", kind: "badge" },
     { key: "상태", label: "상태", kind: "badge" },
     { key: "첫만남", label: "첫 만남", kind: "day" },
     { key: "최근만남", label: "최근 만남", kind: "day" },

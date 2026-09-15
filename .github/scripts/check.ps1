@@ -426,7 +426,6 @@ foreach ($p in $people) {
     if ($factionByNorm.ContainsKey((NormName $t))) { $orgOf[$p.Path] = $factionByNorm[(NormName $t)].Path }
     else { Warn $p.Rel "조직 태그 '$t'에 맞는 세력 노트가 없음 (소속 점선이 그려지지 않음)" }
   }
-  $rv = Scalar $fm '관계'; if ($rv -ne "" -and @("동료", "우호", "취재원", "중립", "경계", "적대", "미정") -notcontains $rv) { Warn $p.Rel "관계 값이 목록에 없음: '$rv'" }
   # 명총희 본인(000)은 만난 인물이 아니므로 인물 목록에 없어도 된다
   if ($peopleList -and -not ($numbered -and $num -eq "000") -and -not (LinksTo $peopleList $p)) {
     if ($numbered) { Err $peopleList.Rel "'$($p.Name)' 링크 없음" } else { Warn $peopleList.Rel "'$($p.Name)' 링크 없음 (아직 만나지 않은 인물 표)" }
