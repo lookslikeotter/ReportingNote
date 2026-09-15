@@ -23,6 +23,7 @@ import {
   ContentData,
   HOVER_EXTRA_WIDTH,
   ME,
+  applyGraphMode,
   caseNodeLinks,
   eventLinkColor,
   eventLinkWidth,
@@ -57,6 +58,8 @@ import {
 //     노드를 처음 위치로 되돌려 흔들리며 자리 잡는 모습은 그대로 보여 준다. 멀리 떨어진 노드는 화면 밖에 둔다
 //   - 왼쪽 위 '명총희 숨기기' 버튼: 명총희는 거의 모든 인물과 이어진 허브라, 빼면 인물끼리의 관계가 드러난다.
 //     상태는 브라우저에 남고(bn-hide-me), 명총희 본인 페이지에서는 숨기지 않는다
+//   - 그래프 상자(GraphBox.tsx)의 '이 페이지' 탭에 들어간다. 숨겨져 있으면(인물 탭·휴대폰에서 접힘) 그리지 않고,
+//     탭을 바꾸거나 펼칠 때(bn-graph-mode) 그린다
 
 // 처음 배율: 노드 둘레 여백(그래프 좌표)과 확대 상한 (사이드바 · 전체 그래프)
 const FIT_PAD = 40
@@ -801,11 +804,14 @@ function cleanupGlobalGraphs() {
 
 document.addEventListener("nav", async (e: CustomEventMap["nav"]) => {
   const slug = e.detail.url
+  applyGraphMode()
 
+  // 보이는 상자만 그린다 (숨겨진 상자는 너비가 0이라 캔버스를 만들 수 없다)
   async function renderLocalGraph() {
     cleanupLocalGraphs()
     const localGraphContainers = document.getElementsByClassName("graph-container")
     for (const container of localGraphContainers) {
+      if ((container as HTMLElement).offsetWidth === 0) continue
       localGraphCleanups.push(await renderGraph(container as HTMLElement, slug))
     }
   }
@@ -816,8 +822,10 @@ document.addEventListener("nav", async (e: CustomEventMap["nav"]) => {
   }
 
   document.addEventListener("themechange", handleThemeChange)
+  document.addEventListener("bn-graph-mode", handleThemeChange)
   window.addCleanup(() => {
     document.removeEventListener("themechange", handleThemeChange)
+    document.removeEventListener("bn-graph-mode", handleThemeChange)
   })
 
   const containers = [...document.getElementsByClassName("global-graph-outer")] as HTMLElement[]

@@ -22,6 +22,7 @@ import { D3Config } from "../Graph"
 import {
   ContentData,
   HOVER_EXTRA_WIDTH,
+  applyGraphMode,
   eventLinkColor,
   eventLinkWidth,
   tableEventPairs,
@@ -37,8 +38,9 @@ import {
   showLinkPopup,
 } from "./bongnudo"
 
-// 봉누도2 — 인물 그래프 스크립트 (오른쪽 위 그래프와 크게 보기 창). Quartz v4.5.2 graph.inline.ts를 바탕으로 했다.
-// 원본은 볼트의 .quartz/quartz/components/scripts/peopleGraph.inline.ts. 아래 그래프와 함께 쓰는 규칙은 bongnudo.ts.
+// 봉누도2 — 인물 그래프 스크립트 (그래프 상자 GraphBox.tsx의 '인물' 탭과 크게 보기 창). Quartz v4.5.2 graph.inline.ts를 바탕으로 했다.
+// 원본은 볼트의 .quartz/quartz/components/scripts/peopleGraph.inline.ts. '이 페이지' 그래프와 함께 쓰는 규칙은 bongnudo.ts.
+// 탭이 숨겨져 있으면 그리지 않고, 탭을 바꾸거나 휴대폰에서 펼칠 때(bn-graph-mode) 그린다.
 //   - 노드는 PERSON_TAG 태그가 붙은 인물 노트만. 색은 소속 세력의 색(없으면 분류 태그 색), 지금 페이지는 테두리
 //   - 이름표는 처음부터 보이고, 확대·축소해도 화면에서 글자 크기가 그대로다
 //   - 선은 사건 인연 선만 (일지 표 📰·🔥 행 관련 인물 칸에 함께 적힌 두 인물, 사건이 많을수록 굵고 가깝게).
@@ -143,7 +145,7 @@ async function renderGraph(graph: HTMLElement, fullSlug: FullSlug) {
     tags: data.get(id)?.tags ?? [],
   }))
   const nodeById = new Map(nodes.map((n) => [n.id, n]))
-  // 인물이 셋 미만이면 상자를 작게 접고 안내 글을 보인다 (custom.scss .people-graph.bn-few)
+  // 인물이 셋 미만이면 안내 글을 보인다 (custom.scss .bn-graph-box.bn-few)
   graph.closest(".graph")?.classList.toggle("bn-few", nodes.length < 3)
   const graphData: { nodes: NodeData[]; links: LinkData[] } = {
     nodes,
@@ -676,10 +678,12 @@ function cleanupPeopleGlobalGraphs() {
 
 document.addEventListener("nav", async (e: CustomEventMap["nav"]) => {
   const slug = e.detail.url
+  applyGraphMode()
 
   async function renderPeopleGraphs(force = false) {
     const container = document.querySelector(".people-graph-container") as HTMLElement | null
-    if (!container) return
+    // 숨겨진 탭이면(너비 0) 그리지 않는다 — 탭을 바꿀 때 다시 온다
+    if (!container || container.offsetWidth === 0) return
     const width = container.offsetWidth
     const height = Math.max(container.offsetHeight, 250)
 
@@ -703,10 +707,15 @@ document.addEventListener("nav", async (e: CustomEventMap["nav"]) => {
   const handleThemeChange = () => {
     void renderPeopleGraphs(true)
   }
+  const handleMode = () => {
+    void renderPeopleGraphs()
+  }
 
   document.addEventListener("themechange", handleThemeChange)
+  document.addEventListener("bn-graph-mode", handleMode)
   window.addCleanup(() => {
     document.removeEventListener("themechange", handleThemeChange)
+    document.removeEventListener("bn-graph-mode", handleMode)
   })
 
   // 오른쪽 위 버튼: 인물 그래프 크게 보기 (Esc나 바깥 클릭으로 닫기)

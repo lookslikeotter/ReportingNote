@@ -11,6 +11,7 @@ import {
 // 봉누도2 — 그래프·표 스크립트가 함께 쓰는 규칙과 도구. 원본은 볼트의 .quartz/quartz/components/scripts/bongnudo.ts.
 //   graph.inline.ts: 오른쪽 아래 그래프와 전체 그래프 / peopleGraph.inline.ts: 인물 그래프
 //   entityEvents.inline.ts: 인물·세력 페이지의 사건 기록 표 / linkChips.inline.ts: 링크 앞 소속 표시
+//   bnMap.inline.ts: 지도 페이지의 장소 노드와 사건 창
 // 차례: 사이트 데이터 → 노드(색·종류) → 이름·링크 → 사건 인연 선 → 선 위 마우스 → 일지 표 읽기 → 선 창·사건 기록 표
 
 export type ContentData = Map<SimpleSlug, ContentDetails>
@@ -37,13 +38,16 @@ export async function loadContentData(): Promise<ContentData> {
 //   cases    = 사건 주소 → 가담인물 (조직이 주체라 일지 표 '관련 인물' 칸에 이름이 없는 사람들)
 //   factions = 세력 주소 → 색
 // 한 번 받아 페이지를 여는 동안 다시 쓰고, 자동 갱신으로 새 기록이 오면 버린다. 실패는 기억하지 않는다 (다음에 다시 시도)
+//   places   = 세력·장소 주소 → 이름들(파일명·별칭·포함장소)과 위치(게임 좌표 x·y 또는 우편번호). 지도가 쓴다
+export type PlaceInfo = { names: string[]; x?: number; y?: number; postal?: string }
 type DayData = {
   days: Record<string, { slug: SimpleSlug; thead: string; rows: string[] }>
   cases: Record<string, SimpleSlug[]>
   factions: Record<string, string>
+  places?: Record<string, PlaceInfo>
 }
 let daysCache: Promise<DayData | null> | null = null
-function fetchDays(currentSlug: FullSlug): Promise<DayData | null> {
+export function fetchDays(currentSlug: FullSlug): Promise<DayData | null> {
   if (!daysCache) {
     const url = new URL(
       joinSegments(pathToRoot(currentSlug), "static/bn-days.json"),
@@ -62,6 +66,35 @@ function fetchDays(currentSlug: FullSlug): Promise<DayData | null> {
   return daysCache
 }
 document.addEventListener("bn-content-updated", () => (daysCache = null))
+
+// ── 오른쪽 그래프 상자의 모드 (GraphBox.tsx: '이 페이지' 그래프 ↔ '인물' 그래프) ──
+// 브라우저에 기억한다. 두 그래프 스크립트가 nav 때 먼저 applyGraphMode로 상자에 표시하고, 보이는 쪽만 그린다
+
+export type GraphMode = "local" | "people"
+const GRAPH_MODE_KEY = "bn-graph-mode"
+export function graphMode(): GraphMode {
+  try {
+    return localStorage.getItem(GRAPH_MODE_KEY) === "people" ? "people" : "local"
+  } catch {
+    return "local"
+  }
+}
+export function setGraphMode(mode: GraphMode) {
+  try {
+    localStorage.setItem(GRAPH_MODE_KEY, mode)
+  } catch {}
+  applyGraphMode()
+  document.dispatchEvent(new CustomEvent("bn-graph-mode", { detail: { mode } }))
+}
+export function applyGraphMode() {
+  const mode = graphMode()
+  for (const box of document.querySelectorAll<HTMLElement>(".bn-graph-box")) {
+    box.dataset.mode = mode
+    for (const btn of box.querySelectorAll<HTMLElement>(".bn-graph-tabs button")) {
+      btn.setAttribute("aria-selected", String(btn.dataset.mode === mode))
+    }
+  }
+}
 
 // ── 노드 ──
 
@@ -345,6 +378,8 @@ export function nearestLink<L extends { simulationData: { source: Point; target:
 
 // ── 일지 표 읽기 ──
 
+export type PlaceRef = { slug?: SimpleSlug; text: string }
+
 // 일지 표(N일차)의 행 하나
 export type DayRow = {
   // 행이 실린 일지(01-일지/N일차)와 그 일차 숫자
@@ -358,6 +393,12 @@ export type DayRow = {
   related: Set<SimpleSlug>
   // '입수 경로' 칸이 인물 링크로만 되어 있으면 그 인물들 (명총희에게 직접 전해 준 사람). 직접·기사·SNS 등이면 빈 배열
   sources: SimpleSlug[]
+  // '장소' 칸의 항목들 (", "로 나눈 것). 링크면 slug도 (지도가 쓴다)
+  places: PlaceRef[]
+  // 시간 칸 글자, 사건 제목과 절대 주소 (지도의 사건 목록이 쓴다)
+  time: string
+  title: string
+  href: string
   // 링크를 절대 주소로 고친 행 복사본
   row: Element
   // 하위 사건 행이면 그 큰 사건(바로 위의 하위가 아닌 행)의 사건 노트. 사건 칸이 "↳"로 시작하는 행
@@ -368,7 +409,8 @@ export type DayRow = {
 
 // 일지 데이터(bn-days.json)를 일차 순서대로 읽는다. 행은 페이지에 보이는 HTML 그대로 되살린다.
 // joined: 사건 주소 → 가담인물 (일지 표 '관련 인물' 칸에는 없지만 그 사건에 있던 사람들)
-async function readDayTables(
+// 지도 페이지(bnMap.inline.ts)도 '장소' 칸을 읽으려고 쓴다
+export async function readDayTables(
   currentSlug: FullSlug,
   data: ContentData,
   resolveLink: (dest: SimpleSlug) => SimpleSlug,
@@ -402,7 +444,25 @@ async function readDayTables(
     const eventCol = heads.findIndex((h) => h.includes("사건"))
     const relatedCol = heads.findIndex((h) => h.includes("관련"))
     const sourceCol = heads.findIndex((h) => h.includes("입수"))
+    const placeCol = heads.findIndex((h) => h.includes("장소"))
     if (eventCol < 0 || relatedCol < 0) continue
+    // '장소' 칸: 링크는 링크대로, 글자는 ","로 나눠서
+    const placesIn = (cell?: Element): PlaceRef[] => {
+      const out: PlaceRef[] = []
+      for (const node of cell?.childNodes ?? []) {
+        if (node instanceof HTMLElement && node.matches("a[data-slug]")) {
+          out.push({
+            slug: resolveLink(simplifySlug(node.dataset.slug as FullSlug)),
+            text: (node.textContent ?? "").trim(),
+          })
+        } else if (node.nodeType === Node.TEXT_NODE) {
+          for (const t of (node.textContent ?? "").split(",")) {
+            if (t.trim() !== "") out.push({ text: t.trim() })
+          }
+        }
+      }
+      return out
+    }
     thead ??= table.querySelector("thead")
     let lastTop: DayRow | null = null
     for (const tr of table.querySelectorAll("tbody tr")) {
@@ -422,6 +482,7 @@ async function readDayTables(
       row.querySelectorAll("a[href]").forEach((a) => {
         a.setAttribute("href", new URL(a.getAttribute("href")!, dayUrl).toString())
       })
+      const eventLink = row.querySelectorAll("td")[eventCol]?.querySelector("a[data-slug]")
       const dayRow: DayRow = {
         day,
         dayN,
@@ -429,6 +490,10 @@ async function readDayTables(
         kind,
         related: new Set(slugsIn(cells[relatedCol])),
         sources: directSources(cells[sourceCol]),
+        places: placeCol >= 0 ? placesIn(cells[placeCol]) : [],
+        time: (cells[0]?.textContent ?? "").trim(),
+        title: (eventLink?.textContent ?? "").trim(),
+        href: eventLink?.getAttribute("href") ?? "",
         row,
       }
       if (isSub && lastTop) {

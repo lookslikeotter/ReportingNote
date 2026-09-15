@@ -47,6 +47,9 @@ const FIELDS: Record<string, Field[]> = {
     { key: "분류", label: "분류", kind: "badge" },
     { key: "aliases", label: "다른 이름", kind: "text" },
     { key: "합격인원", label: "합격 인원", kind: "text" },
+    { key: "우편번호", label: "우편번호", kind: "text" },
+    { key: "좌표", label: "좌표", kind: "text" },
+    { key: "포함장소", label: "포함 장소", kind: "text" },
   ],
   외부자료: [
     { key: "종류", label: "종류", kind: "badge" },
@@ -64,6 +67,9 @@ const FIELDS: Record<string, Field[]> = {
   장소: [
     { key: "구역", label: "구역", kind: "text" },
     { key: "관련세력", label: "관련 세력", kind: "links" },
+    { key: "우편번호", label: "우편번호", kind: "text" },
+    { key: "좌표", label: "좌표", kind: "text" },
+    { key: "포함장소", label: "포함 장소", kind: "text" },
   ],
 }
 

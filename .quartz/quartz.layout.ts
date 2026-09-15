@@ -1,7 +1,9 @@
 import { PageLayout, SharedLayout } from "./quartz/cfg"
 import * as Component from "./quartz/components"
 import ExplorerDefaults from "./quartz/components/ExplorerDefaults"
-import PeopleGraph from "./quartz/components/PeopleGraph"
+import GraphBox from "./quartz/components/GraphBox"
+import MiniMap from "./quartz/components/MiniMap"
+import BnMap from "./quartz/components/BnMap"
 import FontLoader from "./quartz/components/FontLoader"
 import RefreshButton from "./quartz/components/RefreshButton"
 import DayLegend from "./quartz/components/DayLegend"
@@ -85,7 +87,9 @@ export const defaultContentPageLayout: PageLayout = {
     InfoBox(),
     // 세력 관계 태그(경쟁/… 등)는 빼고 보여 주는 태그 목록
     BnTagList(),
-    // 좁은 화면에서만 보이는 그래프 접기/펴기
+    // 지도 페이지(지도.md)에서만: 장소 점을 찍은 큰 지도
+    BnMap(),
+    // 좁은 화면에서만 보이는 지도·그래프 접기/펴기
     GraphToggle(),
   ],
   left: [
@@ -104,14 +108,8 @@ export const defaultContentPageLayout: PageLayout = {
     LatestDay(),
     explorer,
   ],
-  // 오른쪽은 그래프 2개만 (위: 인물 그래프, 아래: 기본 그래프). 목차·백링크는 넣지 않는다.
-  right: [
-    PeopleGraph(),
-    Component.Graph({
-      localGraph: { fontSize: 1.4, repelForce: 0.8, linkDistance: 50, showTags: false },
-      globalGraph: { fontSize: 1.0, showTags: false },
-    }),
-  ],
+  // 오른쪽은 위 작은 지도(MiniMap), 아래 그래프 상자(GraphBox: '이 페이지'·'인물' 탭). 목차·백링크는 넣지 않는다.
+  right: [MiniMap(), GraphBox()],
 }
 
 // components for pages that display lists of pages  (e.g. tags or folders)

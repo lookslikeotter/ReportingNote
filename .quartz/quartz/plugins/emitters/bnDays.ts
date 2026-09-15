@@ -9,9 +9,11 @@ import { write } from "./helpers"
 //   {
 //     "days":     { "3": { slug, thead, rows[] } },        // 일지(01 일지/N일차) 페이지의 첫 표
 //     "cases":    { "01-일지/사건/3일차/3일차-02-…": [인물 주소…] },  // 사건 노트의 가담인물
-//     "factions": { "03-세력/갱/텍사스": "#e03131" }          // 세력 색 (분류 기본값 또는 `색` 속성)
+//     "factions": { "03-세력/갱/텍사스": "#e03131" },         // 세력 색 (분류 기본값 또는 `색` 속성)
+//     "places":   { "03-세력/기관/경찰": { names: ["경찰", "경찰서", "경찰서 앞"], x: 443, y: -984, postal: "8032" } }
+//                 // 세력·장소 노트의 지도 정보: 이름·별칭·`포함장소`와 `좌표`(게임 좌표 "x, y")·`우편번호`
 //   }
-// 그래프 선·선을 누르면 뜨는 창·인물 페이지 사건 기록 표(components/scripts/bongnudo.ts)가 이 파일을 읽는다.
+// 그래프 선·선을 누르면 뜨는 창·인물 페이지 사건 기록 표(components/scripts/bongnudo.ts)와 지도(bnMapLib.ts)가 이 파일을 읽는다.
 // 행 HTML은 페이지에 보이는 것과 같다 (링크의 data-slug, 등급 이름표 bn-lv-* 포함).
 //
 // 가담인물: 조직이 주체인 사건은 일지 표 '관련 인물' 칸에 조직만 적고 개인은 적지 않는다(그래프가 복잡해져서).
@@ -32,6 +34,21 @@ const OTHER_COLOR = "#1aae39" // 초록
 const COLOR_OK = /^#[0-9a-fA-F]{3,8}$/
 
 type DayTable = { slug: SimpleSlug; thead: string; rows: string[] }
+type PlaceInfo = { names: string[]; x?: number; y?: number; postal?: string }
+
+// `좌표: "x, y"` 또는 `좌표: [x, y]` → 게임 좌표
+function parseCoords(v: unknown): { x: number; y: number } | null {
+  const arr = Array.isArray(v) ? v : typeof v === "string" ? v.split(",") : null
+  if (!arr || arr.length < 2) return null
+  const x = Number(String(arr[0]).trim())
+  const y = Number(String(arr[1]).trim())
+  return Number.isNaN(x) || Number.isNaN(y) ? null : { x, y }
+}
+
+const asList = (v: unknown): string[] =>
+  (Array.isArray(v) ? v : v === undefined || v === null || v === "" ? [] : [v]).map((s) =>
+    String(s).trim(),
+  )
 
 // 트리에서 tagName인 첫 요소
 function findFirst(node: Root | Element, tagName: string): Element | null {
@@ -67,16 +84,35 @@ export const BnDays: QuartzEmitterPlugin = () => ({
     const days: Record<string, DayTable> = {}
     const cases: Record<string, SimpleSlug[]> = {}
     const factions: Record<string, string> = {}
+    const places: Record<string, PlaceInfo> = {}
     for (const [tree, file] of content) {
       const slug = simplifySlug(file.data.slug!)
+      const fm: Record<string, unknown> = file.data.frontmatter ?? {}
 
       // 세력 색
       if (slug.startsWith("03-세력/") && slug !== "03-세력/세력-목록") {
-        const fm: Record<string, unknown> = file.data.frontmatter ?? {}
         const custom = typeof fm["색"] === "string" ? fm["색"].trim() : ""
         factions[slug] = COLOR_OK.test(custom)
           ? custom
           : (FACTION_COLORS[String(fm["분류"] ?? "")] ?? OTHER_COLOR)
+      }
+
+      // 지도: 세력·장소 노트의 이름(파일명·별칭·포함장소)과 위치(좌표·우편번호). 위치가 없어도 이름은 내보낸다
+      // (일지 표 '장소' 칸의 글자를 노트에 이어 주려고)
+      if (
+        (slug.startsWith("03-세력/") || slug.startsWith("04-장소/")) &&
+        !["03-세력/세력-목록", "04-장소/장소-목록"].includes(slug)
+      ) {
+        const title = String(fm.title ?? slug.split("/").pop())
+        const names = [...new Set([title, ...asList(fm.aliases), ...asList(fm["포함장소"])])].filter(
+          (n) => n !== "",
+        )
+        const info: PlaceInfo = { names }
+        const xy = parseCoords(fm["좌표"])
+        if (xy) Object.assign(info, xy)
+        const postal = String(fm["우편번호"] ?? "").trim()
+        if (postal !== "") info.postal = postal
+        places[slug] = info
       }
 
       // 일지 페이지: 첫 표가 일지 표
@@ -111,7 +147,7 @@ export const BnDays: QuartzEmitterPlugin = () => ({
 
     yield write({
       ctx,
-      content: JSON.stringify({ days, cases, factions }),
+      content: JSON.stringify({ days, cases, factions, places }),
       slug: "static/bn-days" as FullSlug,
       ext: ".json",
     })
