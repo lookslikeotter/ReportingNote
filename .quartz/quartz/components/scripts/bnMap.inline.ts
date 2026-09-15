@@ -15,6 +15,7 @@ import {
 // BnMap.tsx가 afterDOMLoaded로 싣는다. 지도 도구는 bnMapLib.ts.
 //   - 위: 일차 고르기 (전체 · N일차). 고르면 점 크기가 그 일차의 사건 수로 바뀐다
 //   - 점에 마우스를 올리면 오른쪽 사이드바의 사건 칸(MapPanel.tsx .bn-map-side)에 그곳에서 있었던 사건 목록이 채워진다.
+//     일차별로 묶고, 하위 사건은 큰 사건 제목 아래 들여 쓴다 (큰 사건 자체는 장소가 하위의 합이라 세지 않는다).
 //     지도 페이지에는 그래프·작은 지도가 없어서 그 자리를 이 칸이 쓴다. 다른 점에 올리기 전까지 그대로 남는다
 //   - 점을 누르면 그 장소·세력 페이지로 간다 (노트가 없는 곳은 목록만)
 //   - 아래 '위치를 모르는 장소': 일지 표 '장소' 칸에 있지만 좌표·우편번호를 몰라 못 찍은 곳
@@ -77,8 +78,10 @@ async function setup(section: HTMLElement, fullSlug: FullSlug) {
         panel.append(p)
         return
       }
+      // 일차별로 묶고(전체일 때), 그 안에서 하위 사건은 큰 사건 제목 아래 들여 쓴다
       let list: HTMLUListElement | null = null
       let lastDay = -1
+      let lastParent: string | undefined
       for (const r of rows) {
         if (day === null && r.dayN !== lastDay) {
           const h = document.createElement("h4")
@@ -86,16 +89,22 @@ async function setup(section: HTMLElement, fullSlug: FullSlug) {
           list = document.createElement("ul")
           panel.append(h, list)
           lastDay = r.dayN
+          lastParent = undefined
         } else if (!list) {
           list = document.createElement("ul")
           panel.append(list)
         }
-        list.append(eventItem(r))
+        if (r.parent !== lastParent) {
+          const parent = r.parent ? graph.parents.get(r.parent) : undefined
+          if (parent) list.append(eventItem(parent, "bn-map-ev-parent"))
+          lastParent = r.parent
+        }
+        list.append(eventItem(r, r.parent ? "bn-map-ev-sub" : ""))
       }
     }
-    function eventItem(r: DayRow): HTMLLIElement {
+    function eventItem(r: DayRow, extra = ""): HTMLLIElement {
       const li = document.createElement("li")
-      li.className = `bn-map-ev bn-map-ev-${r.kind}`
+      li.className = `bn-map-ev bn-map-ev-${r.kind} ${extra}`.trim()
       const time = document.createElement("span")
       time.className = "bn-map-time"
       time.textContent = r.time

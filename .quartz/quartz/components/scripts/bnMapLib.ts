@@ -142,7 +142,13 @@ export type PlaceNode = {
   rows: DayRow[]
 }
 export type Unplaced = { key: string; text: string; slug?: SimpleSlug; count: number }
-export type PlaceGraph = { nodes: PlaceNode[]; unplaced: Unplaced[]; days: number[] }
+export type PlaceGraph = {
+  nodes: PlaceNode[]
+  unplaced: Unplaced[]
+  days: number[]
+  // 큰 사건 행 (사건 주소 → 행). 하위 행의 parent로 찾아 목록에 묶음 제목으로 쓴다
+  parents: Map<SimpleSlug, DayRow>
+}
 
 const POSTAL_IN_TEXT = /(?<!\d)(\d{4,5})(?!\d)/
 
@@ -187,8 +193,12 @@ export async function buildPlaceNodes(
   const postalTexts = new Map<string, Map<string, number>>()
   const unplaced = new Map<string, Unplaced>()
   const days = new Set<number>()
+  const parents = new Map<SimpleSlug, DayRow>()
   for (const r of rows) {
-    if (r.hasSubs) continue
+    if (r.hasSubs) {
+      parents.set(r.id, r)
+      continue
+    }
     days.add(r.dayN)
     const seen = new Set<string>()
     for (const ref of r.places) {
@@ -244,6 +254,7 @@ export async function buildPlaceNodes(
     nodes: [...nodes.values()],
     unplaced: [...unplaced.values()].sort((a, b) => b.count - a.count),
     days: [...days].sort((a, b) => a - b),
+    parents,
   }
 }
 

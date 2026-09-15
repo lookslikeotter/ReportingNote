@@ -709,6 +709,16 @@ td > code {
     border-color: var(--bn-event-bar);
   }
 }
+// 큰 사건 제목 줄과 그 아래 들여 쓴 하위 사건
+.bn-map-ev-parent {
+  margin-top: 0.35rem;
+  font-weight: 600;
+  background-color: var(--bn-group-bg);
+  border-radius: 4px;
+}
+.bn-map-ev-sub {
+  margin-left: 0.9rem;
+}
 .bn-map-time {
   margin-right: 0.35rem;
   font-size: 11px;
