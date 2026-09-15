@@ -10,8 +10,8 @@ import { write } from "./helpers"
 //     "days":     { "3": { slug, thead, rows[] } },        // 일지(01 일지/N일차) 페이지의 첫 표
 //     "cases":    { "01-일지/사건/3일차/3일차-02-…": [인물 주소…] },  // 사건 노트의 가담인물
 //     "factions": { "03-세력/갱/텍사스": "#e03131" },         // 세력 색 (분류 기본값 또는 `색` 속성)
-//     "places":   { "03-세력/기관/경찰": { names: ["경찰", "경찰서", "경찰서 앞"], x: 443, y: -984, postal: "8032" } }
-//                 // 세력·장소 노트의 지도 정보: 이름·별칭·`포함장소`와 `좌표`(게임 좌표 "x, y")·`우편번호`
+//     "places":   { "04-장소/경찰서": { names: ["경찰서", "경찰서 앞"], x: 443, y: -984, postal: "8047", faction: "03-세력/기관/경찰" } }
+//                 // 세력·장소 노트의 지도 정보: 이름·별칭·`포함장소`와 `좌표`(게임 좌표 "x, y")·`우편번호`, `관련세력` 첫 세력(점 색)
 //   }
 // 그래프 선·선을 누르면 뜨는 창·인물 페이지 사건 기록 표(components/scripts/bongnudo.ts)와 지도(bnMapLib.ts)가 이 파일을 읽는다.
 // 행 HTML은 페이지에 보이는 것과 같다 (링크의 data-slug, 등급 이름표 bn-lv-* 포함).
@@ -34,7 +34,8 @@ const OTHER_COLOR = "#1aae39" // 초록
 const COLOR_OK = /^#[0-9a-fA-F]{3,8}$/
 
 type DayTable = { slug: SimpleSlug; thead: string; rows: string[] }
-type PlaceInfo = { names: string[]; x?: number; y?: number; postal?: string }
+// faction: 장소 노트 `관련세력`의 첫 세력 주소 (지도 점 색). 세력 노트 자신이면 자기 주소
+type PlaceInfo = { names: string[]; x?: number; y?: number; postal?: string; faction?: SimpleSlug }
 
 // `좌표: "x, y"` 또는 `좌표: [x, y]` → 게임 좌표
 function parseCoords(v: unknown): { x: number; y: number } | null {
@@ -112,6 +113,15 @@ export const BnDays: QuartzEmitterPlugin = () => ({
         if (xy) Object.assign(info, xy)
         const postal = String(fm["우편번호"] ?? "").trim()
         if (postal !== "") info.postal = postal
+        if (slug.startsWith("03-세력/")) info.faction = slug
+        else {
+          const first = asList(fm["관련세력"])
+            .map((v) => v.match(WIKILINK)?.[1])
+            .filter((n): n is string => !!n)
+            .map(resolve)
+            .find((s): s is SimpleSlug => !!s)
+          if (first) info.faction = first
+        }
         places[slug] = info
       }
 

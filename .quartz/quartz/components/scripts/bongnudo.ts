@@ -39,7 +39,14 @@ export async function loadContentData(): Promise<ContentData> {
 //   factions = 세력 주소 → 색
 // 한 번 받아 페이지를 여는 동안 다시 쓰고, 자동 갱신으로 새 기록이 오면 버린다. 실패는 기억하지 않는다 (다음에 다시 시도)
 //   places   = 세력·장소 주소 → 이름들(파일명·별칭·포함장소)과 위치(게임 좌표 x·y 또는 우편번호). 지도가 쓴다
-export type PlaceInfo = { names: string[]; x?: number; y?: number; postal?: string }
+export type PlaceInfo = {
+  names: string[]
+  x?: number
+  y?: number
+  postal?: string
+  // 장소 노트 `관련세력`의 첫 세력 (지도 점 색)
+  faction?: SimpleSlug
+}
 type DayData = {
   days: Record<string, { slug: SimpleSlug; thead: string; rows: string[] }>
   cases: Record<string, SimpleSlug[]>

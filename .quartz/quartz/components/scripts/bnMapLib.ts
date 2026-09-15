@@ -17,7 +17,8 @@ import {
 //   - 우편번호: static/map/postals.json ({ "8032": [x, y] }) — 우편번호를 게임 좌표로 바꾸는 표.
 //     노트의 `우편번호`와 일지 표 '장소' 칸에 우편번호가 적힌 사건("미션로우 8032")이 이걸로 자리를 찾는다 (지도에 번호를 그리지는 않는다)
 //   - 장소 노드: 세력·장소 노트의 `좌표`·`우편번호`(bn-days.json places). 일지 표 '장소' 칸의 링크·글자를
-//     노트 이름·별칭·`포함장소`로 찾아 그 노드에 사건을 모은다. 찾지 못한 장소는 '위치를 모르는 장소'로 돌려준다
+//     노트 이름·별칭·`포함장소`로 찾아 그 노드에 사건을 모은다. 찾지 못한 장소는 '위치를 모르는 장소'로 돌려준다.
+//     점 색은 장소 노트 `관련세력`의 첫 세력 색 (링크 칩·그래프와 같은 색), 없으면 검정
 // Leaflet은 Quartz에 없어서 static/map/leaflet.js를 페이지에 끼워 넣어 쓴다 (전역 L)
 
 export const MAP_PAGE = "지도" as SimpleSlug
@@ -182,7 +183,8 @@ export async function buildPlaceNodes(
       name: nodeLabel(data.get(slug as SimpleSlug)?.title ?? p.names[0] ?? slug),
       x,
       y,
-      color: slug.startsWith("03-세력/") ? (fcolors[slug] ?? defaultColor) : defaultColor,
+      // 점 색은 관련 세력의 색 (없으면 기본 글자색)
+      color: (p.faction && fcolors[p.faction]) || defaultColor,
       rows: [],
     })
   }
