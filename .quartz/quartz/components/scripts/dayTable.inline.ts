@@ -4,7 +4,8 @@
 //   큰 사건 행(bn-parent)은 그룹 머리처럼 칠하고 ▸ 버튼을 단다.
 //   하위 행들은 큰 사건 행 바로 아래의 한 칸짜리 행(bn-subwrap) 안에 **작은 표(bn-subtable)**로 옮겨 넣는다.
 //   그 작은 표가 안쪽으로 들여쓰여 카드처럼 보인다 (custom.scss). 열 이름은 바깥 표의 머리줄을 복사한다.
-//   일지 표(article 안)에서는 접었다 펴고, 그래프 선 창·사건 기록 표(.bn-case-table)에서는 항상 펼쳐 둔다.
+//   일지 표(article 안)와 인물·세력·장소 페이지의 사건 기록 표(.bn-entity-events)에서는 접었다 펴고,
+//   그래프 선 창(.bn-case-table)에서는 항상 펼쳐 둔다.
 //   나중에 만들어지는 표(그래프 선 창·사건 기록 표)도 같은 함수로 표시한다 (bn-table-ready 이벤트).
 
 const SUB_MARK = "↳"
@@ -119,5 +120,8 @@ document.addEventListener("nav", () => markAll(document.body))
 // 그래프 선 창·사건 기록 표가 만들어진 뒤 (bongnudo.ts·entityEvents.inline.ts가 띄운다)
 document.addEventListener("bn-table-ready", (e) => {
   const el = (e as CustomEvent<HTMLElement>).detail
-  if (el) for (const t of el.querySelectorAll<HTMLTableElement>("table")) markTable(t, false)
+  if (!el) return
+  // 사건 기록 표는 길어지므로 접어 두고, 선 창의 표는 펼쳐 둔다
+  const collapsible = !!el.closest(".bn-entity-events")
+  for (const t of el.querySelectorAll<HTMLTableElement>("table")) markTable(t, collapsible)
 })
