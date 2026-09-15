@@ -402,27 +402,19 @@ td > code {
     background: var(--lightgray);
   }
 }
-// 지도 페이지에서는 작은 지도를 두지 않는다 (큰 지도가 있다)
-body[data-slug="지도"] .bn-minimap {
-  display: none;
-}
-
 // 좁은 화면(1200px 미만)에서는 320px씩
 .page > #quartz-body .sidebar.right .graph > .graph-outer {
   height: 320px;
   margin: 0;
 }
 
-// 넓은 화면: 위(지도) 40% · 아래(그래프) 60% (탭 줄만큼 뺀다). 지도 페이지에서는 그래프가 전부 쓴다
+// 넓은 화면: 위(지도) 40% · 아래(그래프) 60% (탭 줄만큼 뺀다)
 @media all and (min-width: 1200px) {
   .page > #quartz-body .sidebar.right .bn-minimap-outer {
     height: calc((100vh - 5rem) * 0.4);
   }
   .page > #quartz-body .sidebar.right .bn-graph-box > .graph-outer {
     height: calc((100vh - 5rem) * 0.6 - 2.2rem);
-  }
-  body[data-slug="지도"] .page > #quartz-body .sidebar.right .bn-graph-box > .graph-outer {
-    height: calc(100vh - 5rem - 2.2rem);
   }
 }
 
@@ -656,25 +648,21 @@ body[data-slug="지도"] .bn-minimap {
   pointer-events: none;
 }
 
-// 점에 마우스를 올리면 뜨는 사건 창 (오른쪽 위)
-.bn-map-panel {
-  position: absolute;
-  top: 0.6rem;
-  right: 0.6rem;
-  z-index: 1001;
-  width: min(340px, calc(100% - 1.2rem));
-  max-height: calc(100% - 1.2rem);
+// 지도 페이지의 오른쪽 사이드바 사건 칸 (MapPanel.tsx). 점에 마우스를 올리면 bnMap.inline.ts가 채운다.
+// 사이드바는 화면 높이에 고정돼 있으므로 칸 안에서 스크롤한다
+.bn-map-side {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 0.7rem 0.85rem;
   border: 1px solid var(--lightgray);
-  border-radius: 10px;
-  background-color: var(--light);
-  box-shadow: rgba(15, 15, 15, 0.16) 0 8px 24px -6px;
+  border-radius: 12px;
   font-size: 13px;
   color: var(--darkgray);
 
-  &.pinned {
-    border-color: var(--secondary);
+  & .bn-map-side-empty {
+    margin: 0;
+    color: var(--gray);
   }
   & a {
     color: var(--secondary);
@@ -1367,6 +1355,12 @@ tbody tr.bn-parent:has(.bn-lv-event) + tr.bn-subwrap:hover > td {
   body.bn-show-graphs .page > #quartz-body .sidebar.right .graph,
   body.bn-show-graphs .page > #quartz-body .sidebar.right .bn-minimap {
     display: block;
+  }
+  // 지도 페이지의 사건 칸은 지도 아래에 보통 상자로
+  .bn-map-side {
+    flex: none;
+    max-height: 60vh;
+    margin-top: 0.6rem;
   }
   .bn-map-frame {
     height: 60vh;

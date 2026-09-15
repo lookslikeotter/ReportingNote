@@ -14,19 +14,18 @@ import {
 // 봉누도2 — 지도 페이지(볼트 맨 위 `지도.md`)의 큰 지도. 원본은 볼트의 .quartz/quartz/components/scripts/bnMap.inline.ts.
 // BnMap.tsx가 afterDOMLoaded로 싣는다. 지도 도구는 bnMapLib.ts.
 //   - 위: 일차 고르기 (전체 · N일차). 고르면 점 크기가 그 일차의 사건 수로 바뀐다
-//   - 점에 마우스를 올리면 오른쪽 위 창에 그곳에서 있었던 사건 목록, 창에 마우스를 넣으면 유지된다
-//   - 점을 누르면 그 장소·세력 페이지로 간다. 노트가 없는 곳(우편번호로만 찍힌 곳)은 창을 고정한다
+//   - 점에 마우스를 올리면 오른쪽 사이드바의 사건 칸(MapPanel.tsx .bn-map-side)에 그곳에서 있었던 사건 목록이 채워진다.
+//     지도 페이지에는 그래프·작은 지도가 없어서 그 자리를 이 칸이 쓴다. 다른 점에 올리기 전까지 그대로 남는다
+//   - 점을 누르면 그 장소·세력 페이지로 간다 (노트가 없는 곳은 목록만)
 //   - 아래 '위치를 모르는 장소': 일지 표 '장소' 칸에 있지만 좌표·우편번호를 몰라 못 찍은 곳
-
-const HIDE_DELAY = 220
 
 async function setup(section: HTMLElement, fullSlug: FullSlug) {
   const status = section.querySelector<HTMLElement>(".bn-map-status")
   const canvas = section.querySelector<HTMLElement>(".bn-map-canvas")
   const daysBar = section.querySelector<HTMLElement>(".bn-map-days")
   const unplacedBox = section.querySelector<HTMLElement>(".bn-map-unplaced")
-  // BnMap.tsx가 늘 만들어 두는 자리 (안쪽 함수들이 쓰므로 null이 아닌 값으로 잡아 둔다)
-  const panel = section.querySelector<HTMLElement>(".bn-map-panel")!
+  // 오른쪽 사이드바의 사건 칸 (MapPanel.tsx가 지도 페이지에만 만든다). 안쪽 함수들이 쓰므로 null이 아닌 값으로 잡아 둔다
+  const panel = document.querySelector<HTMLElement>(".bn-map-side")!
   if (!canvas || !panel || !daysBar) return
 
   let L: any
@@ -48,12 +47,11 @@ async function setup(section: HTMLElement, fullSlug: FullSlug) {
       day === null ? n.rows.length : n.rows.filter((r) => r.dayN === day).length
     const rowsOf = (n: PlaceNode) => (day === null ? n.rows : n.rows.filter((r) => r.dayN === day))
 
-    // ── 사건 창 ──
+    // ── 사건 칸 ──
     let shown: PlaceNode | null = null
-    let pinned = false
-    let hideTimer = 0
     const dayLabel = () => (day === null ? "전체" : `${day}일차`)
     function renderPanel(n: PlaceNode) {
+      shown = n
       panel.replaceChildren()
       const title = document.createElement("div")
       title.className = "bn-map-panel-title"
@@ -109,54 +107,17 @@ async function setup(section: HTMLElement, fullSlug: FullSlug) {
       li.append(time, a)
       return li
     }
-    function show(n: PlaceNode) {
-      window.clearTimeout(hideTimer)
-      if (pinned && shown !== n) return
-      shown = n
-      renderPanel(n)
-      panel.hidden = false
-    }
-    function scheduleHide() {
-      if (pinned) return
-      window.clearTimeout(hideTimer)
-      hideTimer = window.setTimeout(() => {
-        panel.hidden = true
-        shown = null
-      }, HIDE_DELAY)
-    }
-    function unpin() {
-      pinned = false
-      panel.classList.remove("pinned")
-      scheduleHide()
-    }
-    panel.addEventListener("mouseenter", () => window.clearTimeout(hideTimer))
-    panel.addEventListener("mouseleave", scheduleHide)
-    map.on("click", unpin)
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") unpin()
-    }
-    document.addEventListener("keydown", onKey)
-    window.addCleanup(() => document.removeEventListener("keydown", onKey))
 
     // ── 점 ──
     const markers = addPlaceMarkers(L, map, graph.nodes, {
       count: countOf,
       labels: "always",
-      over: (n) => show(n),
-      out: () => scheduleHide(),
+      over: (n) => renderPanel(n),
       click: (n) => {
         if (n.slug) {
           window.spaNavigate(new URL(resolveRelative(fullSlug, n.slug), location.toString()))
-          return
-        }
-        // 노트가 없는 곳: 창을 고정했다 풀었다
-        if (pinned && shown === n) {
-          unpin()
         } else {
-          pinned = false
-          show(n)
-          pinned = true
-          panel.classList.add("pinned")
+          renderPanel(n)
         }
       },
     })

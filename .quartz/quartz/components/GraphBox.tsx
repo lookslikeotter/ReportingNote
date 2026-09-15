@@ -71,7 +71,9 @@ const defaults: Required<GraphBoxOptions> = {
 }
 
 export default ((opts?: GraphBoxOptions) => {
-  const GraphBox: QuartzComponent = ({ displayClass }: QuartzComponentProps) => {
+  const GraphBox: QuartzComponent = ({ fileData, displayClass }: QuartzComponentProps) => {
+    // 지도 페이지에서는 오른쪽을 사건 칸(MapPanel.tsx)이 쓴다
+    if (fileData.slug === "지도") return null
     const local = { ...baseCfg, ...defaults.localGraph, ...opts?.localGraph }
     const global = { ...baseCfg, ...defaults.globalGraph, ...opts?.globalGraph }
     const people = { ...baseCfg, ...defaults.peopleGraph, ...opts?.peopleGraph }

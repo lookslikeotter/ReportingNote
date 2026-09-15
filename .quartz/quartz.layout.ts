@@ -4,6 +4,7 @@ import ExplorerDefaults from "./quartz/components/ExplorerDefaults"
 import GraphBox from "./quartz/components/GraphBox"
 import MiniMap from "./quartz/components/MiniMap"
 import BnMap from "./quartz/components/BnMap"
+import MapPanel from "./quartz/components/MapPanel"
 import FontLoader from "./quartz/components/FontLoader"
 import RefreshButton from "./quartz/components/RefreshButton"
 import DayLegend from "./quartz/components/DayLegend"
@@ -109,7 +110,8 @@ export const defaultContentPageLayout: PageLayout = {
     explorer,
   ],
   // 오른쪽은 위 작은 지도(MiniMap), 아래 그래프 상자(GraphBox: '이 페이지'·'인물' 탭). 목차·백링크는 넣지 않는다.
-  right: [MiniMap(), GraphBox()],
+  // 지도 페이지에서는 둘 대신 사건 칸(MapPanel)만.
+  right: [MiniMap(), GraphBox(), MapPanel()],
 }
 
 // components for pages that display lists of pages  (e.g. tags or folders)
