@@ -210,7 +210,12 @@ td > code {
   margin: 0.8rem 0 0;
 
   &.bn-map-link {
-    margin-top: 0.2rem;
+    margin-top: 0;
+  }
+
+  // 앞의 이모지 (📰 일지 · 🗺️ 지도): 글자와 살짝 띄운다
+  & .bn-latest-icon {
+    margin-right: 0.35rem;
   }
   padding: 3px 8px;
   border-radius: 6px;

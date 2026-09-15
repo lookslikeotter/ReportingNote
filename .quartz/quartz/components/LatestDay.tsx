@@ -22,6 +22,9 @@ const LatestDay: QuartzComponent = ({ fileData, allFiles, displayClass }: Quartz
       data-slug="index"
       title="첫 화면 (최신 일지)"
     >
+      <span class="bn-latest-icon" aria-hidden="true">
+        📰
+      </span>
       {latest}일차 일지
     </a>
   )

@@ -17,6 +17,9 @@ const MapLink: QuartzComponent = ({ fileData, allFiles, displayClass }: QuartzCo
       href={resolveRelative(here, MAP_SLUG as FullSlug)}
       data-slug={MAP_SLUG}
     >
+      <span class="bn-latest-icon" aria-hidden="true">
+        🗺️
+      </span>
       지도
     </a>
   )
